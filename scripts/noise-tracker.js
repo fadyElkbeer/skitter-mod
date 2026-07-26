@@ -15,13 +15,22 @@
 // no arrow functions, no template literals, no Map/Set).
 
 // --- Config ---
-// Noise output per drill tier, in "noise units per addNoise() call".
-// Ordered mechanical < pneumatic < laser < blast per the design
-// discussion. These are placeholder values pending Task 5.2 balance
-// passes - not final numbers.
+// Noise output per extraction block type, in "noise units per
+// addNoise() call". Originally scoped to drill tiers only (mechanical <
+// pneumatic < laser < blast); expanded to include Water Extractor and
+// Oil Extractor, since both are vanilla Serpulo blocks that continuously
+// draw power to actively extract a resource - the same "sustained
+// extraction activity" pattern drills have, just without a drill tier.
+// Placed by rough power draw: Water Extractor is a fairly low, steady
+// draw (comparable to a mechanical/pneumatic drill); Oil Extractor draws
+// more (sand + water + power), placed above pneumatic.
+// These are placeholder values pending Task 5.2 balance passes - not
+// final numbers.
 var NOISE_OUTPUT_BY_TIER = {
   mechanical: 0.5,
+  water_extractor: 0.75,
   pneumatic: 1.0,
+  oil_extractor: 1.5,
   laser: 2.0,
   blast: 3.0
 };
@@ -38,9 +47,10 @@ function tileKey(x, y) {
   return x + "," + y;
 }
 
-// Adds noise for an active source at (x, y) for the given drill tier.
-// Intended to be called once per batch interval (Task 2.1b) while the
-// source is actively mining - NOT per frame.
+// Adds noise for an active extraction source at (x, y) - a drill of the
+// given tier, or a water_extractor / oil_extractor. Intended to be
+// called once per batch interval (Task 2.1b) while the source is
+// actively extracting - NOT per frame.
 function addNoise(x, y, tier, currentTick) {
   var key = tileKey(x, y);
   var output = NOISE_OUTPUT_BY_TIER[tier];
