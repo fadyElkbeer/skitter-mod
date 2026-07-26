@@ -44,6 +44,16 @@ test("higher tiers produce more noise than lower tiers", function () {
   assert.ok(blast > mech, "expected blast tier noise > mechanical tier noise");
 });
 
+test("water_extractor and oil_extractor are recognized as valid extraction types", function () {
+  tracker.addNoise(9, 9, "water_extractor", 0);
+  tracker.addNoise(10, 10, "oil_extractor", 0);
+  var water = tracker.getRawNoiseLevel(9, 9, 0);
+  var oil = tracker.getRawNoiseLevel(10, 10, 0);
+  assert.strictEqual(water, tracker.NOISE_OUTPUT_BY_TIER.water_extractor);
+  assert.strictEqual(oil, tracker.NOISE_OUTPUT_BY_TIER.oil_extractor);
+  assert.ok(oil > water, "expected oil_extractor noise > water_extractor noise");
+});
+
 test("unknown tier falls back to mechanical output rather than throwing", function () {
   tracker.addNoise(3, 3, "some_unknown_tier", 0);
   var level = tracker.getRawNoiseLevel(3, 3, 0);
