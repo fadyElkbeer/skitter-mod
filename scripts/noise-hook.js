@@ -10,6 +10,9 @@
 //     very often" in EventType.java, which is exactly why we batch here
 //     rather than acting on every call.
 //   - require()/module.exports pattern matches main.js's existing usage.
+//   - require() paths must NOT include the .js extension - confirmed
+//     the hard way via an in-game "Module not found" error. Official
+//     wiki examples use require("blocks") for a file named blocks.js.
 //
 // NOT YET CONFIRMED - verify these against the actual running game
 // during Task 1.2's checklist, before trusting this file in Phase 5:
@@ -22,7 +25,7 @@
 // If any of these don't match what the console shows (F8 in-game),
 // this file needs a follow-up fix before Phase 3 depends on it.
 
-var noiseTracker = require("noise-tracker.js");
+var noiseTracker = require("noise-tracker");
 
 // Ticks between batches. 60 ticks = 1 second at Mindustry's 60 TPS cap.
 // This is the single most important performance lever in the whole mod -
