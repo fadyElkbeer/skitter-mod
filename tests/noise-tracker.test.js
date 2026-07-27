@@ -98,6 +98,21 @@ test("distinct tile positions are tracked independently", function () {
   assert.strictEqual(tracker.trackedTileCount(), 2);
 });
 
+test("getTrackedPositions returns all currently-tracked tile coordinates", function () {
+  tracker.addNoise(3, 4, "mechanical", 0);
+  tracker.addNoise(5, 6, "pneumatic", 0);
+  var positions = tracker.getTrackedPositions();
+  var found3_4 = false;
+  var found5_6 = false;
+  for (var i = 0; i < positions.length; i++) {
+    if (positions[i].x === 3 && positions[i].y === 4) found3_4 = true;
+    if (positions[i].x === 5 && positions[i].y === 6) found5_6 = true;
+  }
+  assert.strictEqual(positions.length, 2);
+  assert.ok(found3_4, "expected (3,4) in tracked positions");
+  assert.ok(found5_6, "expected (5,6) in tracked positions");
+});
+
 console.log("");
 console.log(passed + " passed, " + failed + " failed");
 if (failed > 0) {
