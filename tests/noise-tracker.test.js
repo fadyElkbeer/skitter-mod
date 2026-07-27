@@ -75,12 +75,10 @@ test("noise never decays below zero", function () {
   assert.strictEqual(level, 0);
 });
 
-test("repeated addNoise calls accumulate correctly with decay between them", function () {
+test("repeated addNoise calls for a continuously-active source accumulate", function () {
   tracker.addNoise(7, 7, "pneumatic", 0);
-  tracker.addNoise(7, 7, "pneumatic", 5); // 5 ticks of decay happen first, then +pneumatic
-  var afterDecay = tracker.NOISE_OUTPUT_BY_TIER.pneumatic - tracker.DECAY_PER_TICK * 5;
-  if (afterDecay < 0) afterDecay = 0; // matches the implementation's clamp-at-zero behavior
-  var expected = afterDecay + tracker.NOISE_OUTPUT_BY_TIER.pneumatic;
+  tracker.addNoise(7, 7, "pneumatic", 5); // still active 5 ticks later - no decay should apply
+  var expected = tracker.NOISE_OUTPUT_BY_TIER.pneumatic * 2;
   var level = tracker.getRawNoiseLevel(7, 7, 5);
   assert.strictEqual(level, expected);
 });
