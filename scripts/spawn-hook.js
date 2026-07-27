@@ -7,6 +7,10 @@
 // noise-hook.js (Trigger-type events use .run, not .on) - see that
 // file's header for the source citation.
 //
+// CONFIRMED: Trigger.update fires even while paused - Vars.state.isPaused()
+// must be checked explicitly, same as noise-hook.js. See that file's
+// header for how this was found.
+//
 // NOT YET CONFIRMED / NOT YET IMPLEMENTED:
 //   - Actually spawning a unit. Task 3.1 hasn't defined the "Skitter"
 //     unit type yet, so spawnPlaceholder() below only logs. Task 3.2
@@ -46,6 +50,11 @@ var tickCounter = 0;
 var totalTicks = 0;
 
 Events.run(EventType.Trigger.update, function () {
+  // See noise-hook.js's header - Trigger.update fires even while paused,
+  // confirmed via live testing. Must bail out before touching any
+  // counters, or paused time silently counts toward cooldowns/spawns.
+  if (Vars.state.isPaused()) return;
+
   tickCounter++;
   totalTicks++;
 
