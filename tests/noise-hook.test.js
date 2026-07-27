@@ -59,14 +59,15 @@ function freshHarness(mockBuildings) {
   delete require.cache[trackerPath];
   delete require.cache[hookPath];
 
-  require("../scripts/noise-hook.js");
+  var hook = require("../scripts/noise-hook.js");
   var tracker = require("../scripts/noise-tracker.js");
 
   return {
     tick: function () {
       capturedCallback();
     },
-    tracker: tracker
+    tracker: tracker,
+    hook: hook
   };
 }
 
@@ -130,6 +131,36 @@ test("a tile that goes inactive in a later batch decays instead of staying flat"
     levelAfterIdle < levelAfterActive,
     "expected noise to decay after the drill went idle"
   );
+});
+
+test("getNoiseLevel(tile) returns 0 for a tile with no activity", function () {
+  var h = freshHarness([]);
+  for (var i = 0; i < 60; i++) h.tick();
+  assert.strictEqual(h.hook.getNoiseLevel({ x: 20, y: 20 }), 0);
+});
+
+test("getNoiseLevel(tile) matches getRawNoiseLevel for an active source", function () {
+  var h = freshHarness([mockBuilding("laser-drill", 7, 7, 1)]);
+  for (var i = 0; i < 60; i++) h.tick();
+
+  var viaHook = h.hook.getNoiseLevel({ x: 7, y: 7 });
+  var viaTracker = h.tracker.getRawNoiseLevel(7, 7, h.hook._getTotalTicksForTests());
+  assert.strictEqual(viaHook, viaTracker);
+  assert.strictEqual(viaHook, h.tracker.NOISE_OUTPUT_BY_TIER.laser);
+});
+
+test("getNoiseLevel(tile) reflects decay when queried in a later batch without new activity", function () {
+  var buildings = [mockBuilding("blast-drill", 8, 8, 1)];
+  var h = freshHarness(buildings);
+
+  for (var i = 0; i < 60; i++) h.tick();
+  var levelActive = h.hook.getNoiseLevel({ x: 8, y: 8 });
+
+  buildings[0].efficiency = 0;
+  for (var j = 0; j < 60; j++) h.tick();
+  var levelIdle = h.hook.getNoiseLevel({ x: 8, y: 8 });
+
+  assert.ok(levelIdle < levelActive, "expected getNoiseLevel to reflect decay over time");
 });
 
 console.log("");
