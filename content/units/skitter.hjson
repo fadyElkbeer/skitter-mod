@@ -1,0 +1,67 @@
+// skitter.hjson
+//
+// Task 3.1: defines the "Skitter" enemy unit type.
+//
+// CONFIRMED field names: fetched directly from the official Mindustry
+// wiki's UnitType field reference (not guessed/inferred) - speed,
+// hitSize, health, armor, drag, accel, rotateSpeed, flying,
+// targetGround, targetAir, faceTarget, itemCapacity are all real
+// UnitType fields with the types/defaults shown there.
+//
+// NOT YET CONFIRMED - needs an in-game check before Task 3.2 depends on
+// this working correctly:
+//   - The weapon/bullet block's exact JSON shape. Polymorphic fields
+//     (bullet is an abstract BulletType) are commonly set via a "type"
+//     key naming the concrete subclass (e.g. "BasicBulletType") in
+//     community Mindustry mods, but this wasn't verified against a
+//     primary source the way the top-level fields were - check the
+//     console for a JSON/Hjson parse error on mod load, same as any
+//     other content file.
+//   - Whether a sprite is strictly required for the mod to load without
+//     error, or just for the unit to render correctly. A placeholder
+//     sprite is included either way (see sprites/units/skitter.png).
+//
+// Design intent per the implementation plan: "weak-but-numerous" -
+// encourages turret defense over raw stat checks. Values below are
+// deliberately low and are placeholders pending Task 5.2 balance passes,
+// same as the noise-tracker tier values.
+
+type: UnitType
+
+// --- Movement (confirmed fields) ---
+speed: 0.5
+accel: 0.4
+drag: 0.35
+rotateSpeed: 6
+hitSize: 7
+
+// --- Combat stats (confirmed fields) ---
+health: 35
+armor: 0
+
+// --- Behavior flags (confirmed fields) ---
+flying: false
+targetGround: true
+targetAir: false
+faceTarget: true
+itemCapacity: 0
+
+// --- Weapon (NOT YET CONFIRMED syntax - verify via in-game load check) ---
+weapons: [
+  {
+    name: "skitter-mouth"
+    x: 0
+    y: 0
+    reload: 50
+    range: 35
+    top: false
+    bullet: {
+      type: BasicBulletType
+      damage: 3
+      speed: 3.5
+      lifetime: 12
+      width: 3
+      height: 5
+    }
+  }
+]
