@@ -1,16 +1,13 @@
 // noise-hook.test.js
 //
 // Tests the BATCHING/DECAY LOGIC in scripts/noise-hook.js (Task 2.1b) by
-// mocking Mindustry's globals (Events, EventType, Groups). This does NOT
-// verify that Groups.build, build.tile.x/y, build.block.name, or
-// build.efficiency are the real API - see the NOT YET CONFIRMED comment
-// block at the top of noise-hook.js for that. It only proves that IF
-// those assumptions are correct, the batching and decay logic built on
-// top of them behaves as intended.
+// mocking Mindustry's globals (Events, EventType, Groups). Groups.build's
+// mock now matches the confirmed real API (each(Cons), no size/get) -
+// see noise-hook.js's header for how that was confirmed in-game.
 //
 // Run with: NODE_PATH=./scripts node tests/noise-hook.test.js
 // (NODE_PATH is required because noise-hook.js uses Rhino-style bare
-// require("noise-tracker") rather than a relative path, matching
+// require("noise-tracker.js") rather than a relative path, matching
 // Mindustry's actual module resolution.)
 
 var assert = require("assert");
@@ -46,9 +43,8 @@ function freshHarness(mockBuildings) {
   };
   global.Groups = {
     build: {
-      size: mockBuildings.length,
-      get: function (i) {
-        return mockBuildings[i];
+      each: function (cb) {
+        for (var i = 0; i < mockBuildings.length; i++) cb(mockBuildings[i]);
       }
     }
   };
