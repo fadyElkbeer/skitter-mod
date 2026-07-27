@@ -51,6 +51,16 @@ function tileKey(x, y) {
 // given tier, or a water_extractor / oil_extractor. Intended to be
 // called once per batch interval (Task 2.1b) while the source is
 // actively extracting - NOT per frame.
+//
+// Deliberately does NOT apply decay here. Decay represents idle time
+// (see decayInactive below) - since this function is only ever called
+// for sources noise-hook.js has confirmed are active THIS batch, the
+// elapsed time since the last call was active mining time, not idle
+// time, and decaying it would undo the "sustained mining accumulates
+// noise" behavior the whole mechanic depends on. (This was a real bug
+// caught by Task 2.2's spawn-hook tests: with decay applied here, noise
+// could never exceed a single tier's output before being knocked back
+// down, making the spawn threshold unreachable.)
 function addNoise(x, y, tier, currentTick) {
   var key = tileKey(x, y);
   var output = NOISE_OUTPUT_BY_TIER[tier];
@@ -64,7 +74,6 @@ function addNoise(x, y, tier, currentTick) {
     noiseState[key] = entry;
   }
 
-  applyDecay(entry, currentTick);
   entry.level += output;
   entry.lastUpdateTick = currentTick;
 }
@@ -101,6 +110,17 @@ function decayInactive(x, y, currentTick) {
 
 // Returns the current noise level at (x, y), applying decay first so the
 // value reflects "as of now" rather than "as of the last addNoise call".
+//
+// Caveat for future callers (e.g. Task 3.2's unit AI): this applies idle
+// decay for ALL elapsed time since the last update, with no way to know
+// whether that time was actually idle or just "hasn't hit its next batch
+// checkpoint yet." Safe as long as callers only query at the same batch
+// cadence addNoise/decayInactive run on (true today - see noise-hook.js
+// and spawn-hook.js, which query in lockstep with the same 60-tick
+// interval). If a future caller polls this off-cycle (e.g. every frame)
+// for a source that's still actively mining but hasn't been re-added
+// yet this batch, it will see a partially-decayed value that doesn't
+// reflect reality. Worth revisiting if/when that becomes a real need.
 function getRawNoiseLevel(x, y, currentTick) {
   var key = tileKey(x, y);
   var entry = noiseState[key];
