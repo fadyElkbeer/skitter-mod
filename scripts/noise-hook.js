@@ -4,11 +4,17 @@
 // event loop. This is the highest-risk file in the mod since it's the
 // only one touching real engine APIs instead of pure logic.
 //
-// CONFIRMED against official Mindustry wiki / EventType.java source:
-//   - Events.on(EventType.Trigger.update, callback) fires every game
-//     update tick. Trigger.update is listed under "events that occur
-//     very often" in EventType.java, which is exactly why we batch here
-//     rather than acting on every call.
+// CONFIRMED against official Mindustry wiki / EventType.java source /
+// actual in-game testing:
+//   - Trigger.update fires every game update tick. Trigger.update is
+//     listed under "events that occur very often" in EventType.java,
+//     which is exactly why we batch here rather than acting on every
+//     call.
+//   - Trigger-type events (bare signals with no event object) use
+//     Events.run(Trigger.x, callback) - NOT Events.on(), which is for
+//     typed events like UnitDestroyEvent. Found via an in-game
+//     EvaluatorException: "Can't find method arc.Events.on(...Trigger,
+//     Function)" - Events.on has no overload for Trigger.
 //   - require()/module.exports pattern matches main.js's existing usage.
 //   - require() paths must NOT include the .js extension - confirmed
 //     the hard way via an in-game "Module not found" error. Official
@@ -48,7 +54,7 @@ var BLOCK_NAME_TO_TIER = {
 var tickCounter = 0; // triggers a batch every BATCH_INTERVAL ticks
 var totalTicks = 0;  // monotonically increasing - passed to noise-tracker for decay math
 
-Events.on(EventType.Trigger.update, function () {
+Events.run(EventType.Trigger.update, function () {
   tickCounter++;
   totalTicks++;
 
