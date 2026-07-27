@@ -3,11 +3,12 @@ displayName: Skitter
 author: fadyElkbeer
 description: "Sustained mining generates noise. Noise attracts hostile units. Defend accordingly."
 version: 0.1.0
-minGameVersion: 146
-// TODO (Task 1.1): confirm exact target Mindustry build/version and pin it here
-// before first playtest - see Section 1 of the implementation plan.
+minGameVersion: 159
+// Confirmed via in-game testing: running on Mindustry 159.2 as of this
+// commit. Task 1.1's earlier placeholder (146) is now replaced with a
+// value actually verified against a running game.
 
 main: scripts/main.js
 
 // Platform note: this mod uses JavaScript (Rhino) and is Android/desktop only.
-// iOS cannot load JS/Java mods - see plan Section 4.
+// iOS cannot load JS/Java mods — see plan Section 4.
