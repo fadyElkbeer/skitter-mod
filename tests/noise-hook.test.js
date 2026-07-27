@@ -32,6 +32,7 @@ function test(name, fn) {
 // noise-tracker.js keeps module-level state that must reset between tests.
 function freshHarness(mockBuildings) {
   var capturedCallback = null;
+  var paused = false;
 
   global.Events = {
     run: function (event, cb) {
@@ -48,6 +49,13 @@ function freshHarness(mockBuildings) {
       }
     }
   };
+  global.Vars = {
+    state: {
+      isPaused: function () {
+        return paused;
+      }
+    }
+  };
 
   // Force fresh module instances so state doesn't leak between tests.
   var trackerPath = require.resolve("../scripts/noise-tracker.js");
@@ -61,6 +69,9 @@ function freshHarness(mockBuildings) {
   return {
     tick: function () {
       capturedCallback();
+    },
+    setPaused: function (value) {
+      paused = value;
     },
     tracker: tracker,
     hook: hook
@@ -157,6 +168,28 @@ test("getNoiseLevel(tile) reflects decay when queried in a later batch without n
   var levelIdle = h.hook.getNoiseLevel({ x: 8, y: 8 });
 
   assert.ok(levelIdle < levelActive, "expected getNoiseLevel to reflect decay over time");
+});
+
+test("no batch runs while the game is paused, even across many ticks", function () {
+  var h = freshHarness([mockBuilding("mechanical-drill", 9, 9, 1)]);
+  h.setPaused(true);
+  for (var i = 0; i < 600; i++) h.tick(); // far more than one batch interval's worth
+  assert.strictEqual(h.tracker.trackedTileCount(), 0, "expected zero activity while paused");
+});
+
+test("ticks accumulated while paused don't count once unpaused", function () {
+  var h = freshHarness([mockBuilding("mechanical-drill", 10, 10, 1)]);
+  h.setPaused(true);
+  for (var i = 0; i < 59; i++) h.tick(); // 59 "paused" ticks - should not count at all
+  h.setPaused(false);
+  for (var j = 0; j < 59; j++) h.tick(); // needs a full fresh 60 to trigger a batch
+  assert.strictEqual(
+    h.tracker.trackedTileCount(),
+    0,
+    "expected paused ticks to not contribute toward the batch interval"
+  );
+  h.tick(); // the 60th real tick
+  assert.strictEqual(h.tracker.trackedTileCount(), 1, "expected the batch to fire on the 60th unpaused tick");
 });
 
 console.log("");
