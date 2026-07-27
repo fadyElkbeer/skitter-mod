@@ -90,3 +90,27 @@ function runBatch() {
     }
   }
 }
+
+// Task 2.1c: query API for spawn logic (Task 2.2).
+//
+// Lives here rather than in noise-tracker.js because getRawNoiseLevel()
+// needs a "current tick" to compute decay-since-last-update, and
+// noise-hook.js is the module that actually knows what tick it is.
+// noise-tracker.js stays tick-agnostic/pure per Task 2.1a's design.
+//
+// Takes a Mindustry Tile (or any object with .x/.y - see the
+// NOT YET CONFIRMED note at the top of this file re: tile.x/tile.y).
+function getNoiseLevel(tile) {
+  return noiseTracker.getRawNoiseLevel(tile.x, tile.y, totalTicks);
+}
+
+// Test-only accessor so tests can assert on the tick clock without
+// reaching into module-private state directly.
+function _getTotalTicksForTests() {
+  return totalTicks;
+}
+
+module.exports = {
+  getNoiseLevel: getNoiseLevel,
+  _getTotalTicksForTests: _getTotalTicksForTests
+};
