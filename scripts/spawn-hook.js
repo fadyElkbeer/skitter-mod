@@ -3,10 +3,9 @@
 // Task 2.2: wires spawn-trigger.js into the live game loop, batched on
 // the same interval as noise-hook.js (Task 2.1b).
 //
-// CONFIRMED: same Events.on(EventType.Trigger.update, ...) pattern as
-// noise-hook.js - see that file's header for the source citation.
-// Also confirmed: require() paths must omit the .js extension - see
-// noise-hook.js's header for how that was found (an in-game error).
+// CONFIRMED: same Events.run(EventType.Trigger.update, ...) pattern as
+// noise-hook.js (Trigger-type events use .run, not .on) - see that
+// file's header for the source citation.
 //
 // NOT YET CONFIRMED / NOT YET IMPLEMENTED:
 //   - Actually spawning a unit. Task 3.1 hasn't defined the "Skitter"
@@ -37,7 +36,7 @@ var spawnTrigger = require("spawn-trigger");
 // together.
 var BATCH_INTERVAL = 60;
 
-// Note: this registers its own Events.on(Trigger.update, ...) listener
+// Note: this registers its own Events.run(Trigger.update, ...) listener
 // rather than piggybacking on noise-hook.js's. Two listeners doing
 // cheap counter increments is not the performance concern here - the
 // expensive work (Groups.build iteration) stays isolated to noise-hook.js
@@ -46,7 +45,7 @@ var BATCH_INTERVAL = 60;
 var tickCounter = 0;
 var totalTicks = 0;
 
-Events.on(EventType.Trigger.update, function () {
+Events.run(EventType.Trigger.update, function () {
   tickCounter++;
   totalTicks++;
 
