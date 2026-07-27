@@ -13,7 +13,8 @@
 // Task 1.2 checklist rather than trusting this either way.)
 
 require("noise-hook.js"); // Task 2.1b — noise accumulator wired to the live game loop
+require("spawn-hook.js"); // Task 2.2 — spawn trigger logic (spawn action stubbed pending Task 3.1's unit)
 
 Events.on(EventType.ClientLoadEvent, function(e) {
-  Log.info("[skitter-mod] loaded — noise tracking active (Task 2.1a/2.1b), spawn logic not yet implemented (Phase 2.2 pending)");
+  Log.info("[skitter-mod] loaded — noise tracking + spawn trigger active (Tasks 2.1a-2.2). No unit type yet (Task 3.1 pending), so spawn triggers currently just log.");
 });
