@@ -26,7 +26,7 @@ function test(name, fn) {
   }
 }
 
-// Captures every Events.on registration (both noise-hook.js and
+// Captures every Events.run registration (both noise-hook.js and
 // spawn-hook.js register their own listener) and every Log.info call,
 // since spawnPlaceholder() logs instead of spawning a real unit.
 function freshHarness(mockBuildings, fixedRandomValue) {
@@ -34,7 +34,7 @@ function freshHarness(mockBuildings, fixedRandomValue) {
   var logMessages = [];
 
   global.Events = {
-    on: function (event, cb) {
+    run: function (event, cb) {
       callbacks.push(cb);
     }
   };
