@@ -5,6 +5,8 @@
 //
 // CONFIRMED: same Events.on(EventType.Trigger.update, ...) pattern as
 // noise-hook.js - see that file's header for the source citation.
+// Also confirmed: require() paths must omit the .js extension - see
+// noise-hook.js's header for how that was found (an in-game error).
 //
 // NOT YET CONFIRMED / NOT YET IMPLEMENTED:
 //   - Actually spawning a unit. Task 3.1 hasn't defined the "Skitter"
@@ -24,9 +26,9 @@
 //     doesn't create anything persistent, but flagging so this isn't
 //     mistaken for finished behavior.
 
-var noiseTracker = require("noise-tracker.js");
-var noiseHook = require("noise-hook.js");
-var spawnTrigger = require("spawn-trigger.js");
+var noiseTracker = require("noise-tracker");
+var noiseHook = require("noise-hook");
+var spawnTrigger = require("spawn-trigger");
 
 // Reuses noise-hook.js's batch cadence rather than introducing a second
 // magic number - if Task 5.1 TPS testing says the interval needs to
