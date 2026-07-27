@@ -37,6 +37,11 @@
 //     "item-source", "item-void" - all matching real Serpulo content).
 //   - build.efficiency - confirmed via live console, printed as a plain
 //     number (e.g. "eff=1") on active drills, no method-call needed.
+//   - Trigger.update fires even while the game is paused. Confirmed via
+//     live testing: spawn-triggered messages kept appearing while
+//     paused, and Vars.state.isPaused() returned true at the console
+//     during that time. Every tick-driven file must check this itself -
+//     it is NOT handled automatically by the engine.
 
 var noiseTracker = require("noise-tracker");
 
@@ -66,6 +71,15 @@ var tickCounter = 0; // triggers a batch every BATCH_INTERVAL ticks
 var totalTicks = 0;  // monotonically increasing - passed to noise-tracker for decay math
 
 Events.run(EventType.Trigger.update, function () {
+  // Confirmed via live console (Vars.state.isPaused() returned true while
+  // spawn-triggered messages kept appearing): Trigger.update fires even
+  // while the game is paused. Without this check, noise would keep
+  // accumulating and decaying "in the background" during pause, and the
+  // instant you unpaused you'd see whatever built up during that time
+  // resolve all at once. Bail out before touching tickCounter/totalTicks
+  // at all, so paused time genuinely doesn't count.
+  if (Vars.state.isPaused()) return;
+
   tickCounter++;
   totalTicks++;
 
