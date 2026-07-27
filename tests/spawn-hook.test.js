@@ -32,6 +32,7 @@ function test(name, fn) {
 function freshHarness(mockBuildings, fixedRandomValue) {
   var callbacks = [];
   var logMessages = [];
+  var paused = false;
 
   global.Events = {
     run: function (event, cb) {
@@ -43,15 +44,21 @@ function freshHarness(mockBuildings, fixedRandomValue) {
   };
   global.Groups = {
     build: {
-      size: mockBuildings.length,
-      get: function (i) {
-        return mockBuildings[i];
+      each: function (cb) {
+        for (var i = 0; i < mockBuildings.length; i++) cb(mockBuildings[i]);
       }
     }
   };
   global.Log = {
     info: function (msg) {
       logMessages.push(msg);
+    }
+  };
+  global.Vars = {
+    state: {
+      isPaused: function () {
+        return paused;
+      }
     }
   };
 
@@ -79,6 +86,9 @@ function freshHarness(mockBuildings, fixedRandomValue) {
   return {
     tick: function () {
       for (var i = 0; i < callbacks.length; i++) callbacks[i]();
+    },
+    setPaused: function (value) {
+      paused = value;
     },
     noiseTracker: noiseTracker,
     spawnTrigger: spawnTrigger,
@@ -123,6 +133,13 @@ test("the concurrency cap eventually stops further spawns even with a guaranteed
     activeCount <= h.spawnTrigger.MAX_CONCURRENT_PER_SOURCE,
     "expected active count to respect the concurrency cap, got " + activeCount
   );
+});
+
+test("no spawn check runs while the game is paused", function () {
+  var h = freshHarness([mockBuilding("blast-drill", 5, 5, 1)], 0); // roll=0 would guarantee a spawn if unpaused
+  h.setPaused(true);
+  for (var i = 0; i < 60 * 5; i++) h.tick();
+  assert.strictEqual(h.logMessages.length, 0, "expected no spawns while paused, even with noise well above threshold");
 });
 
 console.log("");
