@@ -20,16 +20,23 @@
 //     the hard way via an in-game "Module not found" error. Official
 //     wiki examples use require("blocks") for a file named blocks.js.
 //
-// NOT YET CONFIRMED - verify these against the actual running game
-// during Task 1.2's checklist, before trusting this file in Phase 5:
-//   - Groups.build as the way to iterate all live buildings
-//   - build.tile.x / build.tile.y for tile position
-//   - build.block.name for the block's internal name
-//   - build.efficiency as the "is this actively extracting right now"
-//     signal (a drill/extractor at 0 efficiency is idle - unpowered,
-//     blocked output, no ore under it, etc.)
-// If any of these don't match what the console shows (F8 in-game),
-// this file needs a follow-up fix before Phase 3 depends on it.
+//   - Groups.build.each(Cons) is how you iterate live buildings - there
+//     is NO indexed access (no .size property, no .get(i)). Confirmed
+//     via live console: Groups.build.get(0) threw "Cannot find function
+//     get in object mindustry.entities.EntityGroup". Groups.build.size
+//     is a method (int size()), not a property - my original code used
+//     it as a property, which combined with the missing get(i) meant
+//     the batch loop silently never ran (zero spawns, zero errors, for
+//     a full 5-minute in-game test - the kind of bug tests can't catch
+//     without a real game to run against).
+//   - build.tile.x / build.tile.y - confirmed via live console
+//     (Groups.build.each(function(b){...b.tile.x...}) printed real
+//     coordinates like "91,90").
+//   - build.block.name - confirmed the same way (printed real names:
+//     "core-shard", "water-extractor", "blast-drill", "salvo",
+//     "item-source", "item-void" - all matching real Serpulo content).
+//   - build.efficiency - confirmed via live console, printed as a plain
+//     number (e.g. "eff=1") on active drills, no method-call needed.
 
 var noiseTracker = require("noise-tracker");
 
@@ -40,8 +47,12 @@ var noiseTracker = require("noise-tracker");
 var BATCH_INTERVAL = 60;
 
 // Maps a building's internal block name to the noise-tracker tier string.
-// Names are inferred from Mindustry wiki URL slugs, NOT confirmed against
-// Block.java source - flagged above as needing in-game verification.
+// "water-extractor" and "blast-drill" confirmed via live console output
+// (see header). The other three (mechanical-drill, pneumatic-drill,
+// laser-drill, oil-extractor) weren't in this particular test session's
+// buildings, so they're still inferred from the same wiki-slug naming
+// pattern that turned out correct for the two we could check - high
+// confidence, not yet independently confirmed for those specific names.
 var BLOCK_NAME_TO_TIER = {
   "mechanical-drill": "mechanical",
   "pneumatic-drill": "pneumatic",
@@ -71,23 +82,21 @@ function runBatch() {
   // which previously-tracked tiles to decay afterward.
   var seenThisBatch = {};
 
-  var buildings = Groups.build;
-  for (var i = 0; i < buildings.size; i++) {
-    var build = buildings.get(i);
-    if (!build || !build.block) continue;
+  Groups.build.each(function (build) {
+    if (!build || !build.block) return;
 
     var tier = BLOCK_NAME_TO_TIER[build.block.name];
-    if (tier === undefined) continue; // not an extraction block we track
+    if (tier === undefined) return; // not an extraction block we track
 
     // efficiency > 0 is our proxy for "actively extracting right now" -
-    // see the NOT YET CONFIRMED note at the top of this file.
-    if (build.efficiency <= 0) continue;
+    // confirmed via in-game console testing (see header note).
+    if (build.efficiency <= 0) return;
 
     var x = build.tile.x;
     var y = build.tile.y;
     noiseTracker.addNoise(x, y, tier, totalTicks);
     seenThisBatch[x + "," + y] = true;
-  }
+  });
 
   // Decay every tracked tile that wasn't actively adding noise this batch.
   var tracked = noiseTracker.getTrackedPositions();
@@ -107,8 +116,8 @@ function runBatch() {
 // noise-hook.js is the module that actually knows what tick it is.
 // noise-tracker.js stays tick-agnostic/pure per Task 2.1a's design.
 //
-// Takes a Mindustry Tile (or any object with .x/.y - see the
-// NOT YET CONFIRMED note at the top of this file re: tile.x/tile.y).
+// Takes a Mindustry Tile (or any object with .x/.y - confirmed working,
+// see the header note above).
 function getNoiseLevel(tile) {
   return noiseTracker.getRawNoiseLevel(tile.x, tile.y, totalTicks);
 }
