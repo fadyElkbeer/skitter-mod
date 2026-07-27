@@ -10,7 +10,7 @@
 //
 // Run with: NODE_PATH=./scripts node tests/noise-hook.test.js
 // (NODE_PATH is required because noise-hook.js uses Rhino-style bare
-// require("noise-tracker.js") rather than a relative path, matching
+// require("noise-tracker") rather than a relative path, matching
 // Mindustry's actual module resolution.)
 
 var assert = require("assert");
@@ -31,13 +31,13 @@ function test(name, fn) {
 }
 
 // Sets up fresh mock globals and a fresh require of both modules, since
-// noise-hook.js registers its Events.on callback at require-time and
+// noise-hook.js registers its Events.run callback at require-time and
 // noise-tracker.js keeps module-level state that must reset between tests.
 function freshHarness(mockBuildings) {
   var capturedCallback = null;
 
   global.Events = {
-    on: function (event, cb) {
+    run: function (event, cb) {
       capturedCallback = cb;
     }
   };
