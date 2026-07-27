@@ -119,6 +119,19 @@ function trackedTileCount() {
   return count;
 }
 
+// Returns an array of {x, y} for every currently-tracked tile. Task 2.1b
+// uses this each batch cycle to decay tiles that were active before but
+// aren't this cycle (addNoise wasn't called for them this batch).
+function getTrackedPositions() {
+  var positions = [];
+  for (var k in noiseState) {
+    if (!noiseState.hasOwnProperty(k)) continue;
+    var parts = k.split(",");
+    positions.push({ x: parseInt(parts[0], 10), y: parseInt(parts[1], 10) });
+  }
+  return positions;
+}
+
 // Test-only: clears all state between test cases. Not for use by
 // Task 2.1b engine wiring.
 function _resetForTests() {
@@ -130,6 +143,7 @@ module.exports = {
   decayInactive: decayInactive,
   getRawNoiseLevel: getRawNoiseLevel,
   trackedTileCount: trackedTileCount,
+  getTrackedPositions: getTrackedPositions,
   NOISE_OUTPUT_BY_TIER: NOISE_OUTPUT_BY_TIER,
   DECAY_PER_TICK: DECAY_PER_TICK,
   _resetForTests: _resetForTests
