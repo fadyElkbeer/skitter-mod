@@ -19,15 +19,17 @@
 //     spawn as - confirmed via Rules.java source: "public Team waveTeam
 //     = Team.crux;". Using this instead of hardcoding Team.crux so this
 //     still works correctly under rulesets that change it.
+//   - Vars.content.unit(name) IS the right lookup method - confirmed via
+//     live console. The content NAME needed a fix though: mod content is
+//     namespaced as "<modname>-<contentname>", not the plain filename
+//     stem. Confirmed by running
+//     Vars.content.units().each(function(u){ Log.info(u.name) }) in-game,
+//     which printed "skitter-mod-skitter". My original guess of plain
+//     "skitter" returned nothing (logged as an ERROR by the defensive
+//     check below, rather than crashing - worth keeping that check
+//     around even now that this specific name is fixed).
 //
 // NOT YET CONFIRMED - needs an in-game check:
-//   - Vars.content.unit("skitter") as the lookup for our OWN mod's unit
-//     content (as opposed to UnitTypes.dagger, which only works for
-//     built-in vanilla units compiled into that fixed Java class - our
-//     mod-defined "skitter" unit isn't a field on UnitTypes). This is a
-//     reasonable-confidence guess based on Mindustry's general
-//     content(String) lookup convention, not confirmed against a
-//     primary source the way the fields above were.
 //   - Vars.tilesize as the tile-to-world-pixel conversion factor
 //     (commonly 8 in Mindustry, but referenced here as a named constant
 //     rather than hardcoded specifically so a wrong assumption fails
@@ -99,11 +101,18 @@ function runSpawnCheck() {
 // Cached lazily (on first real spawn attempt, not at module load time)
 // to sidestep any content-load-order uncertainty - by the time a spawn
 // is actually triggered, mod content is unquestionably fully loaded.
+//
+// CONFIRMED via live console: mod content names are namespaced as
+// "<modname>-<contentname>", not the plain filename stem. Ran
+// Vars.content.units().each(function(u){ Log.info(u.name) }) in-game
+// and it printed "skitter-mod-skitter" (mod name "skitter-mod" +
+// content name "skitter"). My original guess of plain "skitter" was
+// wrong - that's why Vars.content.unit("skitter") returned nothing.
 var cachedSkitterType = null;
 
 function getSkitterType() {
   if (!cachedSkitterType) {
-    cachedSkitterType = Vars.content.unit("skitter");
+    cachedSkitterType = Vars.content.unit("skitter-mod-skitter");
   }
   return cachedSkitterType;
 }
@@ -113,7 +122,7 @@ function getSkitterType() {
 function spawnSkitter(sourceTileX, sourceTileY) {
   var type = getSkitterType();
   if (!type) {
-    Log.info("[skitter-mod] ERROR: Vars.content.unit(\"skitter\") returned nothing - lookup name or API is wrong, check in-game");
+    Log.info("[skitter-mod] ERROR: Vars.content.unit(\"skitter-mod-skitter\") returned nothing - check in-game");
     return;
   }
 
