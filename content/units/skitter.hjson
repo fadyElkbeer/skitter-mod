@@ -8,6 +8,19 @@
 // targetGround, targetAir, faceTarget, itemCapacity are all real
 // UnitType fields with the types/defaults shown there.
 //
+// CONFIRMED via in-game error: the top-level "type" field is NOT a raw
+// Java class name. It must be one of exactly:
+// flying/mech/legs/naval/payload/missile/tether/crawl.
+// Using "UnitType" (my original guess) threw:
+// [IllegalArgument] Invalid unit type: 'UnitType'.
+// Went with "crawl" as the simplest ground-movement type, closest to
+// vanilla Dagger's plain sliding movement - no articulated legs, so no
+// extra leg-sprite requirement to guess at on top of an already-broken
+// load. "legs" is also valid and arguably a better thematic fit for a
+// unit named "Skitter" (visible walking legs) - worth revisiting as a
+// follow-up once "crawl" is confirmed loading cleanly, since legs
+// likely needs its own sprite naming convention not yet confirmed.
+//
 // NOT YET CONFIRMED - needs an in-game check before Task 3.2 depends on
 // this working correctly:
 //   - The weapon/bullet block's exact JSON shape. Polymorphic fields
@@ -18,15 +31,16 @@
 //     console for a JSON/Hjson parse error on mod load, same as any
 //     other content file.
 //   - Whether a sprite is strictly required for the mod to load without
-//     error, or just for the unit to render correctly. A placeholder
-//     sprite is included either way (see sprites/units/skitter.png).
+//     error, or just for the unit to render correctly. Placeholder
+//     sprites are included either way (see sprites/units/skitter.png
+//     and sprites/units/skitter-cell.png).
 //
 // Design intent per the implementation plan: "weak-but-numerous" -
 // encourages turret defense over raw stat checks. Values below are
 // deliberately low and are placeholders pending Task 5.2 balance passes,
 // same as the noise-tracker tier values.
 
-type: UnitType
+type: crawl
 
 // --- Movement (confirmed fields) ---
 speed: 0.5
