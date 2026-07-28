@@ -1,7 +1,8 @@
 // spawn-hook.js
 //
-// Task 2.2: wires spawn-trigger.js into the live game loop, batched on
-// the same interval as noise-hook.js (Task 2.1b).
+// Task 2.2 + first half of Task 3.2: wires spawn-trigger.js into the
+// live game loop, and now actually spawns a real Skitter unit (not just
+// a log message) once Task 3.1 defined the unit type.
 //
 // CONFIRMED: same Events.run(EventType.Trigger.update, ...) pattern as
 // noise-hook.js (Trigger-type events use .run, not .on) - see that
@@ -11,23 +12,39 @@
 // must be checked explicitly, same as noise-hook.js. See that file's
 // header for how this was found.
 //
-// NOT YET CONFIRMED / NOT YET IMPLEMENTED:
-//   - Actually spawning a unit. Task 3.1 hasn't defined the "Skitter"
-//     unit type yet, so spawnPlaceholder() below only logs. Task 3.2
-//     ("Custom targeting AI", which the plan lists as depending on both
-//     this task AND Task 3.1) is where the real spawn call belongs.
-//   - Picking a spawn location "just outside the player's explored/
-//     visible radius" per the plan's Task 2.2 spec. That needs a
-//     fog-of-war/vision API this file doesn't touch yet - spawnPlaceholder
-//     receives the noise SOURCE position only, not a computed spawn
-//     point. Treat this as a known gap, not an oversight.
-//   - recordUnitRemoved() (spawn-trigger.js) is never called from
-//     anywhere yet, since there's no real unit to attach an
-//     UnitDestroyEvent listener to. Until Task 3.2 wires that up, the
-//     concurrency cap will only ever count placeholder "spawns" that
-//     never actually die - acceptable for now since spawnPlaceholder
-//     doesn't create anything persistent, but flagging so this isn't
-//     mistaken for finished behavior.
+// CONFIRMED against official Mindustry API docs / source (not guessed):
+//   - UnitType.spawn(Team team, float x, float y) is a real public
+//     method (mindustry.type.UnitType, official docs page).
+//   - Vars.state.rules.waveTeam is the correct dynamic "enemy team" to
+//     spawn as - confirmed via Rules.java source: "public Team waveTeam
+//     = Team.crux;". Using this instead of hardcoding Team.crux so this
+//     still works correctly under rulesets that change it.
+//
+// NOT YET CONFIRMED - needs an in-game check:
+//   - Vars.content.unit("skitter") as the lookup for our OWN mod's unit
+//     content (as opposed to UnitTypes.dagger, which only works for
+//     built-in vanilla units compiled into that fixed Java class - our
+//     mod-defined "skitter" unit isn't a field on UnitTypes). This is a
+//     reasonable-confidence guess based on Mindustry's general
+//     content(String) lookup convention, not confirmed against a
+//     primary source the way the fields above were.
+//   - Vars.tilesize as the tile-to-world-pixel conversion factor
+//     (commonly 8 in Mindustry, but referenced here as a named constant
+//     rather than hardcoded specifically so a wrong assumption fails
+//     loudly instead of silently misplacing every spawn).
+//
+// STILL A KNOWN GAP (unchanged from before):
+//   - Spawn location is still just the noise source's own tile, not
+//     "just outside the player's explored/visible radius" per the
+//     original plan spec - that needs a fog-of-war/vision API this file
+//     doesn't touch yet.
+//   - recordUnitRemoved() (spawn-trigger.js) still isn't wired to
+//     anything - there's no UnitDestroyEvent listener yet tying a real
+//     unit's death back to the source that spawned it, so the
+//     concurrency cap only ever counts up, never down. This is now a
+//     real problem (not just a placeholder limitation) since real units
+//     now exist and can die - worth addressing soon, but treating as a
+//     separate follow-up rather than blocking this spawn wiring.
 
 var noiseTracker = require("noise-tracker");
 var noiseHook = require("noise-hook");
@@ -74,17 +91,38 @@ function runSpawnCheck() {
 
     if (spawnTrigger.shouldSpawn(pos.x, pos.y, noiseLevel, totalTicks)) {
       spawnTrigger.recordSpawnStarted(pos.x, pos.y, totalTicks);
-      spawnPlaceholder(pos.x, pos.y);
+      spawnSkitter(pos.x, pos.y);
     }
   }
 }
 
-// TODO (Task 3.1/3.2): replace with a real unit spawn once the Skitter
-// unit type exists, and with an actual computed spawn point once vision/
-// fog-of-war lookup is implemented. For now this just proves the trigger
-// logic is actually firing when noise crosses the threshold.
-function spawnPlaceholder(sourceX, sourceY) {
-  Log.info("[skitter-mod] spawn triggered near noise source (" + sourceX + "," + sourceY + ") - no unit type defined yet (Task 3.1 pending)");
+// Cached lazily (on first real spawn attempt, not at module load time)
+// to sidestep any content-load-order uncertainty - by the time a spawn
+// is actually triggered, mod content is unquestionably fully loaded.
+var cachedSkitterType = null;
+
+function getSkitterType() {
+  if (!cachedSkitterType) {
+    cachedSkitterType = Vars.content.unit("skitter");
+  }
+  return cachedSkitterType;
+}
+
+// Spawns a real Skitter unit at the noise source's tile position.
+// See the header for what's confirmed vs. still a guess/gap here.
+function spawnSkitter(sourceTileX, sourceTileY) {
+  var type = getSkitterType();
+  if (!type) {
+    Log.info("[skitter-mod] ERROR: Vars.content.unit(\"skitter\") returned nothing - lookup name or API is wrong, check in-game");
+    return;
+  }
+
+  var worldX = sourceTileX * Vars.tilesize;
+  var worldY = sourceTileY * Vars.tilesize;
+  var team = Vars.state.rules.waveTeam;
+
+  type.spawn(team, worldX, worldY);
+  Log.info("[skitter-mod] spawned Skitter near noise source tile (" + sourceTileX + "," + sourceTileY + ")");
 }
 
 module.exports = {
