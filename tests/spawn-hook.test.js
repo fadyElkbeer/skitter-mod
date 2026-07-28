@@ -1,11 +1,12 @@
 // spawn-hook.test.js
 //
-// Tests scripts/spawn-hook.js (Task 2.2) by mocking Mindustry globals,
-// same approach as noise-hook.test.js. Proves the wiring between
-// noise-tracker -> noise-hook -> spawn-trigger -> spawnPlaceholder fires
-// correctly when noise crosses the threshold. Does NOT prove the real
-// spawn location or unit creation, since neither exists yet - see the
-// header comment in spawn-hook.js.
+// Tests scripts/spawn-hook.js (Task 2.2 + first half of Task 3.2) by
+// mocking Mindustry globals, same approach as noise-hook.test.js.
+// Proves the wiring between noise-tracker -> noise-hook -> spawn-trigger
+// -> spawnSkitter fires correctly, including the tile-to-world coordinate
+// conversion and team lookup. Does NOT prove Vars.content.unit("skitter")
+// is the real lookup API, or that Vars.tilesize is really 8 - see the
+// header comment in spawn-hook.js for what's still an assumption there.
 //
 // Run with: NODE_PATH=./scripts node tests/spawn-hook.test.js
 
@@ -27,12 +28,20 @@ function test(name, fn) {
 }
 
 // Captures every Events.run registration (both noise-hook.js and
-// spawn-hook.js register their own listener) and every Log.info call,
-// since spawnPlaceholder() logs instead of spawning a real unit.
+// spawn-hook.js register their own listener), every Log.info call, and
+// every mock unit-type spawn() call, so tests can assert on team/position.
 function freshHarness(mockBuildings, fixedRandomValue) {
   var callbacks = [];
   var logMessages = [];
+  var spawnCalls = [];
   var paused = false;
+
+  var mockWaveTeam = "mockCruxTeam";
+  var mockSkitterType = {
+    spawn: function (team, x, y) {
+      spawnCalls.push({ team: team, x: x, y: y });
+    }
+  };
 
   global.Events = {
     run: function (event, cb) {
@@ -58,6 +67,15 @@ function freshHarness(mockBuildings, fixedRandomValue) {
     state: {
       isPaused: function () {
         return paused;
+      },
+      rules: {
+        waveTeam: mockWaveTeam
+      }
+    },
+    tilesize: 8,
+    content: {
+      unit: function (name) {
+        return name === "skitter" ? mockSkitterType : null;
       }
     }
   };
@@ -92,7 +110,9 @@ function freshHarness(mockBuildings, fixedRandomValue) {
     },
     noiseTracker: noiseTracker,
     spawnTrigger: spawnTrigger,
-    logMessages: logMessages
+    logMessages: logMessages,
+    spawnCalls: spawnCalls,
+    mockWaveTeam: mockWaveTeam
   };
 }
 
@@ -105,7 +125,7 @@ test("no spawn is triggered while noise is below the spawn threshold", function 
   // single batch isn't enough accumulation to cross it regardless.
   var h = freshHarness([mockBuilding("mechanical-drill", 1, 1, 1)], 0); // roll=0 would pass any positive chance
   for (var i = 0; i < 60; i++) h.tick();
-  assert.strictEqual(h.logMessages.length, 0);
+  assert.strictEqual(h.spawnCalls.length, 0);
 });
 
 test("a spawn is triggered once noise crosses the threshold with a favorable roll", function () {
@@ -113,14 +133,29 @@ test("a spawn is triggered once noise crosses the threshold with a favorable rol
   // Run enough batches for blast-tier noise to accumulate past SPAWN_THRESHOLD.
   // blast tier = 3.0 noise per batch, minus decay between batches - run generously.
   for (var i = 0; i < 60 * 5; i++) h.tick();
-  assert.ok(h.logMessages.length > 0, "expected at least one spawn-triggered log message");
-  assert.ok(h.logMessages[0].indexOf("(2,2)") !== -1, "expected the log to reference the source position");
+  assert.ok(h.spawnCalls.length > 0, "expected at least one real spawn call");
+});
+
+test("spawn converts tile coordinates to world coordinates using Vars.tilesize", function () {
+  var h = freshHarness([mockBuilding("blast-drill", 2, 2, 1)], 0);
+  for (var i = 0; i < 60 * 5; i++) h.tick();
+  assert.ok(h.spawnCalls.length > 0, "expected at least one spawn call to check");
+  var call = h.spawnCalls[0];
+  assert.strictEqual(call.x, 2 * 8, "expected tile x=2 to convert to world x=16");
+  assert.strictEqual(call.y, 2 * 8, "expected tile y=2 to convert to world y=16");
+});
+
+test("spawn uses Vars.state.rules.waveTeam rather than a hardcoded team", function () {
+  var h = freshHarness([mockBuilding("blast-drill", 2, 2, 1)], 0);
+  for (var i = 0; i < 60 * 5; i++) h.tick();
+  assert.ok(h.spawnCalls.length > 0, "expected at least one spawn call to check");
+  assert.strictEqual(h.spawnCalls[0].team, h.mockWaveTeam);
 });
 
 test("an unfavorable roll suppresses the spawn even above threshold", function () {
   var h = freshHarness([mockBuilding("blast-drill", 3, 3, 1)], 0.999999); // near-certain roll fails vs a small chance
   for (var i = 0; i < 60 * 5; i++) h.tick();
-  assert.strictEqual(h.logMessages.length, 0);
+  assert.strictEqual(h.spawnCalls.length, 0);
 });
 
 test("the concurrency cap eventually stops further spawns even with a guaranteed-pass roll", function () {
@@ -139,7 +174,21 @@ test("no spawn check runs while the game is paused", function () {
   var h = freshHarness([mockBuilding("blast-drill", 5, 5, 1)], 0); // roll=0 would guarantee a spawn if unpaused
   h.setPaused(true);
   for (var i = 0; i < 60 * 5; i++) h.tick();
-  assert.strictEqual(h.logMessages.length, 0, "expected no spawns while paused, even with noise well above threshold");
+  assert.strictEqual(h.spawnCalls.length, 0, "expected no spawns while paused, even with noise well above threshold");
+});
+
+test("a missing unit-type lookup logs an error instead of crashing", function () {
+  var h = freshHarness([mockBuilding("blast-drill", 6, 6, 1)], 0);
+  // Sabotage the lookup after setup to simulate a wrong content name.
+  Vars.content.unit = function () {
+    return null;
+  };
+  for (var i = 0; i < 60 * 5; i++) h.tick();
+  assert.strictEqual(h.spawnCalls.length, 0, "expected no spawn call when the unit type can't be found");
+  var foundErrorLog = h.logMessages.some(function (msg) {
+    return msg.indexOf("ERROR") !== -1;
+  });
+  assert.ok(foundErrorLog, "expected an error log when Vars.content.unit() returns null");
 });
 
 console.log("");
