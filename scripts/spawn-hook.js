@@ -35,11 +35,16 @@
 //     rather than hardcoded specifically so a wrong assumption fails
 //     loudly instead of silently misplacing every spawn).
 //
-// STILL A KNOWN GAP (unchanged from before):
-//   - Spawn location is still just the noise source's own tile, not
-//     "just outside the player's explored/visible radius" per the
-//     original plan spec - that needs a fog-of-war/vision API this file
-//     doesn't touch yet.
+// STILL A KNOWN GAP:
+//   - FIXED (was: spawning directly on the noise source's own tile, i.e.
+//     inside the building - confirmed as a real visible bug via a
+//     screenshot showing Skitters spawned on top of turrets). Now
+//     searches outward for the nearest non-solid tile instead - see
+//     findNearestOpenTile below. This is NOT the same as the plan's
+//     original "just outside the player's explored/visible radius"
+//     spec - it just finds open ground near the source, with no
+//     awareness of what the player can currently see. Vision-based
+//     placement is still a separate, unimplemented feature.
 //   - recordUnitRemoved() (spawn-trigger.js) still isn't wired to
 //     anything - there's no UnitDestroyEvent listener yet tying a real
 //     unit's death back to the source that spawned it, so the
@@ -117,7 +122,47 @@ function getSkitterType() {
   return cachedSkitterType;
 }
 
-// Spawns a real Skitter unit at the noise source's tile position.
+// Real bug found via live testing: spawning directly at the noise
+// source's own tile puts the unit ON TOP OF the drill/extractor itself,
+// since that tile IS the building. Fixed by searching outward in
+// expanding square rings for the nearest tile that isn't solid.
+//
+// CONFIRMED against Mindustry source (World.java): World.solid(x, y) is
+// a real public method - "return tile == null || tile.solid();" - so
+// checking !Vars.world.solid(x, y) correctly identifies open, walkable
+// ground. Vars.world itself is confirmed accessible the same way
+// Vars.state/Vars.content are (seen used directly in Mindustry's own
+// BuildingComp.java as Vars.world.tile(...)).
+//
+// This does NOT yet implement the plan's original "just outside the
+// player's explored/visible radius" spec - that's a separate, bigger
+// feature needing a fog-of-war/vision API this function doesn't touch.
+// This only fixes the concrete visible bug (unit spawning inside a
+// building) with the simplest correct fix: nearest open ground, full
+// stop. Revisit vision-based placement as its own follow-up.
+var MAX_SPAWN_SEARCH_RADIUS = 6;
+
+function findNearestOpenTile(centerX, centerY, maxRadius) {
+  for (var r = 0; r <= maxRadius; r++) {
+    for (var dx = -r; dx <= r; dx++) {
+      for (var dy = -r; dy <= r; dy++) {
+        // Only check the ring boundary at exactly radius r - inner
+        // tiles were already checked at smaller r values.
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+
+        var tx = centerX + dx;
+        var ty = centerY + dy;
+        if (!Vars.world.solid(tx, ty)) {
+          return { x: tx, y: ty };
+        }
+      }
+    }
+  }
+  return null; // nothing open within maxRadius - caller must handle
+}
+
+// Spawns a real Skitter unit near the noise source, at the nearest open
+// (non-solid) tile rather than directly on top of the source building.
 // See the header for what's confirmed vs. still a guess/gap here.
 function spawnSkitter(sourceTileX, sourceTileY) {
   var type = getSkitterType();
@@ -126,12 +171,18 @@ function spawnSkitter(sourceTileX, sourceTileY) {
     return;
   }
 
-  var worldX = sourceTileX * Vars.tilesize;
-  var worldY = sourceTileY * Vars.tilesize;
+  var openTile = findNearestOpenTile(sourceTileX, sourceTileY, MAX_SPAWN_SEARCH_RADIUS);
+  if (!openTile) {
+    Log.info("[skitter-mod] no open tile found within " + MAX_SPAWN_SEARCH_RADIUS + " tiles of noise source (" + sourceTileX + "," + sourceTileY + ") - skipping this spawn");
+    return;
+  }
+
+  var worldX = openTile.x * Vars.tilesize;
+  var worldY = openTile.y * Vars.tilesize;
   var team = Vars.state.rules.waveTeam;
 
   type.spawn(team, worldX, worldY);
-  Log.info("[skitter-mod] spawned Skitter near noise source tile (" + sourceTileX + "," + sourceTileY + ")");
+  Log.info("[skitter-mod] spawned Skitter at open tile (" + openTile.x + "," + openTile.y + ") near noise source (" + sourceTileX + "," + sourceTileY + ")");
 }
 
 module.exports = {
