@@ -4,9 +4,11 @@
 // mocking Mindustry globals, same approach as noise-hook.test.js.
 // Proves the wiring between noise-tracker -> noise-hook -> spawn-trigger
 // -> spawnSkitter fires correctly, including the tile-to-world coordinate
-// conversion and team lookup. Does NOT prove Vars.content.unit("skitter")
-// is the real lookup API, or that Vars.tilesize is really 8 - see the
-// header comment in spawn-hook.js for what's still an assumption there.
+// conversion, team lookup, and the nearest-open-tile search. Does NOT
+// prove Vars.content.unit("skitter-mod-skitter") is exactly right, or
+// that Vars.tilesize/Vars.world.solid behave identically in the real
+// game - see the header comment in spawn-hook.js for what's confirmed
+// vs. still an assumption.
 //
 // Run with: NODE_PATH=./scripts node tests/spawn-hook.test.js
 
@@ -30,7 +32,7 @@ function test(name, fn) {
 // Captures every Events.run registration (both noise-hook.js and
 // spawn-hook.js register their own listener), every Log.info call, and
 // every mock unit-type spawn() call, so tests can assert on team/position.
-function freshHarness(mockBuildings, fixedRandomValue) {
+function freshHarness(mockBuildings, fixedRandomValue, solidTileKeys) {
   var callbacks = [];
   var logMessages = [];
   var spawnCalls = [];
@@ -42,6 +44,20 @@ function freshHarness(mockBuildings, fixedRandomValue) {
       spawnCalls.push({ team: team, x: x, y: y });
     }
   };
+
+  // By default, treat exactly the buildings' own tiles as solid (since
+  // a building obviously occupies its own tile) and everything else as
+  // open ground - matches reality closely enough for these tests. Pass
+  // solidTileKeys explicitly to override for tests that need a bigger
+  // solid footprint (simulating a multi-tile building).
+  var solidSet = {};
+  if (solidTileKeys) {
+    for (var s = 0; s < solidTileKeys.length; s++) solidSet[solidTileKeys[s]] = true;
+  } else {
+    for (var b = 0; b < mockBuildings.length; b++) {
+      solidSet[mockBuildings[b].tile.x + "," + mockBuildings[b].tile.y] = true;
+    }
+  }
 
   global.Events = {
     run: function (event, cb) {
@@ -75,7 +91,12 @@ function freshHarness(mockBuildings, fixedRandomValue) {
     tilesize: 8,
     content: {
       unit: function (name) {
-        return name === "skitter" ? mockSkitterType : null;
+        return name === "skitter-mod-skitter" ? mockSkitterType : null;
+      }
+    },
+    world: {
+      solid: function (x, y) {
+        return solidSet[x + "," + y] === true;
       }
     }
   };
@@ -137,12 +158,52 @@ test("a spawn is triggered once noise crosses the threshold with a favorable rol
 });
 
 test("spawn converts tile coordinates to world coordinates using Vars.tilesize", function () {
-  var h = freshHarness([mockBuilding("blast-drill", 2, 2, 1)], 0);
+  // Force every tile except (3,2) solid within search range, so the
+  // open-tile search has exactly one deterministic answer to find.
+  var solid = [];
+  for (var dx = -6; dx <= 6; dx++) {
+    for (var dy = -6; dy <= 6; dy++) {
+      if (dx === 1 && dy === 0) continue; // leaves (3,2) open relative to source (2,2)
+      solid.push((2 + dx) + "," + (2 + dy));
+    }
+  }
+  var h = freshHarness([mockBuilding("blast-drill", 2, 2, 1)], 0, solid);
   for (var i = 0; i < 60 * 5; i++) h.tick();
   assert.ok(h.spawnCalls.length > 0, "expected at least one spawn call to check");
   var call = h.spawnCalls[0];
-  assert.strictEqual(call.x, 2 * 8, "expected tile x=2 to convert to world x=16");
-  assert.strictEqual(call.y, 2 * 8, "expected tile y=2 to convert to world y=16");
+  assert.strictEqual(call.x, 3 * 8, "expected the only open tile (3,2) to convert to world x=24");
+  assert.strictEqual(call.y, 2 * 8, "expected the only open tile (3,2) to convert to world y=16");
+});
+
+test("spawn does not land on the noise source's own (solid) tile", function () {
+  // Default harness marks the building's own tile solid - this is
+  // exactly the bug the screenshot showed (Skitters spawning on top of
+  // turrets). Confirms the fix: the chosen spawn tile is never the
+  // source tile itself.
+  var h = freshHarness([mockBuilding("blast-drill", 10, 10, 1)], 0);
+  for (var i = 0; i < 60 * 5; i++) h.tick();
+  assert.ok(h.spawnCalls.length > 0, "expected at least one spawn call to check");
+  var call = h.spawnCalls[0];
+  var spawnedOnSourceTile = call.x === 10 * 8 && call.y === 10 * 8;
+  assert.ok(!spawnedOnSourceTile, "expected spawn to avoid the solid source tile, but it spawned exactly there");
+});
+
+test("no spawn happens (logged, not crashed) when no open tile exists within search range", function () {
+  // Make every tile within the search radius solid - simulates a fully
+  // walled-in noise source.
+  var solid = [];
+  for (var dx = -6; dx <= 6; dx++) {
+    for (var dy = -6; dy <= 6; dy++) {
+      solid.push((7 + dx) + "," + (7 + dy));
+    }
+  }
+  var h = freshHarness([mockBuilding("blast-drill", 7, 7, 1)], 0, solid);
+  for (var i = 0; i < 60 * 5; i++) h.tick();
+  assert.strictEqual(h.spawnCalls.length, 0, "expected no spawn call when completely walled in");
+  var foundSkipLog = h.logMessages.some(function (msg) {
+    return msg.indexOf("no open tile found") !== -1;
+  });
+  assert.ok(foundSkipLog, "expected a log explaining the spawn was skipped");
 });
 
 test("spawn uses Vars.state.rules.waveTeam rather than a hardcoded team", function () {
