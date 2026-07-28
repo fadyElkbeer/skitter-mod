@@ -21,19 +21,20 @@
 // follow-up once "crawl" is confirmed loading cleanly, since legs
 // likely needs its own sprite naming convention not yet confirmed.
 //
-// NOT YET CONFIRMED - needs an in-game check before Task 3.2 depends on
-// this working correctly:
-//   - The weapon/bullet block's exact JSON shape. Polymorphic fields
-//     (bullet is an abstract BulletType) are commonly set via a "type"
-//     key naming the concrete subclass (e.g. "BasicBulletType") in
-//     community Mindustry mods, but this wasn't verified against a
-//     primary source the way the top-level fields were - check the
-//     console for a JSON/Hjson parse error on mod load, same as any
-//     other content file.
-//   - Whether a sprite is strictly required for the mod to load without
-//     error, or just for the unit to render correctly. Placeholder
-//     sprites are included either way (see sprites/units/skitter.png
-//     and sprites/units/skitter-cell.png).
+// CONFIRMED via in-game load: the mod loads successfully (only a
+// non-fatal warning about the "range" field, since removed - see the
+// weapon block below), meaning: the weapon/bullet block's polymorphic
+// "type: BasicBulletType" syntax is valid, and both placeholder sprites
+// (sprites/units/skitter.png, sprites/units/skitter-cell.png) are
+// sufficient for load - no sprite-related error occurred. Spawn logic
+// from Phase 2 is confirmed still firing correctly on top of this
+// (console showed real "spawn triggered near noise source" messages).
+//
+// STILL NOT CONFIRMED - this only proves the mod LOADS, not that the
+// unit behaves/looks right in practice. Once Task 3.2 actually spawns
+// one, still worth checking: does it move at a reasonable speed, does
+// the weapon actually fire and hit things, does the placeholder sprite
+// look reasonable at actual in-game zoom (vs. real art later).
 //
 // Design intent per the implementation plan: "weak-but-numerous" -
 // encourages turret defense over raw stat checks. Values below are
@@ -60,14 +61,19 @@ targetAir: false
 faceTarget: true
 itemCapacity: 0
 
-// --- Weapon (NOT YET CONFIRMED syntax - verify via in-game load check) ---
+// --- Weapon ---
+// CONFIRMED via in-game warning: "range" is not a real field on Weapon
+// ([W] Unknown Field 'range' for class 'Weapon' - warning, not fatal,
+// mod still loaded). Removed it - effective attack range comes from the
+// bullet's speed * lifetime instead, not a separate weapon-level field.
+// Every other field here (name, x, y, reload, top, bullet) produced no
+// warning, so those are confirmed valid as written.
 weapons: [
   {
     name: "skitter-mouth"
     x: 0
     y: 0
     reload: 50
-    range: 35
     top: false
     bullet: {
       type: BasicBulletType
