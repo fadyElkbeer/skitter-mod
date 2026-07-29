@@ -2,7 +2,7 @@
 //
 // Task 2.2 + spawning half of Task 3.2 + Task 3.3: wires spawn-trigger.js
 // into the live game loop, spawns a real Skitter unit, and warns the
-// player (toast + attempted sound) right after each spawn.
+// player (toast notification) right after each spawn.
 //
 // CONFIRMED: same Events.run(EventType.Trigger.update, ...) pattern as
 // noise-hook.js (Trigger-type events use .run, not .on) - see that
@@ -193,21 +193,16 @@ function spawnSkitter(sourceTileX, sourceTileY) {
 // CONFIRMED (official wiki example, verbatim pattern):
 //   Vars.ui.hudfrag.showToast("message") - on-screen toast notification.
 //
-// NOT CONFIRMED: Sounds.spawn as a real field. Found "spawn" in a large
-// dump of names from the wiki's SoundEffect reference page, but that
-// list mixes sound and visual-effect (Fx) names without making clear
-// which class each belongs to - this is a plausible guess, not a
-// verified fact the way showToast is. Wrapped in try/catch so a wrong
-// guess degrades to a log line instead of breaking the spawn/toast that
-// already succeeded above.
+// CONFIRMED (live in-game error) that "spawn" is NOT a real field on
+// Sounds: "InternalError: Java class mindustry.gen.Sounds has no public
+// instance field or method named 'spawn'." That guess (from a name dump
+// on the wiki's SoundEffect page that mixed sound and Fx names without
+// distinguishing them) was wrong. Removed rather than guessed again -
+// the toast alone satisfies the plan's "audio OR visual cue"
+// requirement. A real sound can be added later once the correct field
+// name (or a custom .ogg/.mp3 asset) is confirmed.
 function warnPlayer(worldX, worldY) {
   Vars.ui.hudfrag.showToast("Skitter incoming!");
-
-  try {
-    Sounds.spawn.at(worldX, worldY);
-  } catch (e) {
-    Log.info("[skitter-mod] warning sound failed (Sounds.spawn may not be the right field) - " + e);
-  }
 }
 
 module.exports = {
