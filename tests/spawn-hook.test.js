@@ -5,10 +5,10 @@
 // noise-hook.test.js. Proves the wiring between noise-tracker ->
 // noise-hook -> spawn-trigger -> spawnSkitter -> warnPlayer fires
 // correctly, including tile-to-world conversion, team lookup, and the
-// warning toast/sound. Does NOT prove Vars.content.unit("skitter-mod-
-// skitter"), Vars.tilesize, or Sounds.spawn are exactly right against
-// the real game - see the header comment in spawn-hook.js for what's
-// confirmed vs. still an assumption.
+// warning toast. Does NOT prove Vars.content.unit("skitter-mod-
+// skitter") or Vars.tilesize are exactly right against the real game -
+// see the header comment in spawn-hook.js for what's confirmed vs.
+// still an assumption.
 //
 // Run with: NODE_PATH=./scripts node tests/spawn-hook.test.js
 
@@ -37,9 +37,7 @@ function freshHarness(mockBuildings, fixedRandomValue, solidTileKeys) {
   var logMessages = [];
   var spawnCalls = [];
   var toastCalls = [];
-  var soundCalls = [];
   var paused = false;
-  var soundShouldThrow = false;
 
   var mockWaveTeam = "mockCruxTeam";
   var mockSkitterType = {
@@ -80,14 +78,6 @@ function freshHarness(mockBuildings, fixedRandomValue, solidTileKeys) {
   global.Log = {
     info: function (msg) {
       logMessages.push(msg);
-    }
-  };
-  global.Sounds = {
-    spawn: {
-      at: function (x, y) {
-        if (soundShouldThrow) throw new Error("mock Sounds.spawn failure");
-        soundCalls.push({ x: x, y: y });
-      }
     }
   };
   global.Vars = {
@@ -147,15 +137,11 @@ function freshHarness(mockBuildings, fixedRandomValue, solidTileKeys) {
     setPaused: function (value) {
       paused = value;
     },
-    setSoundShouldThrow: function (value) {
-      soundShouldThrow = value;
-    },
     noiseTracker: noiseTracker,
     spawnTrigger: spawnTrigger,
     logMessages: logMessages,
     spawnCalls: spawnCalls,
     toastCalls: toastCalls,
-    soundCalls: soundCalls,
     mockWaveTeam: mockWaveTeam
   };
 }
@@ -216,27 +202,6 @@ test("Task 3.3: a toast warning fires whenever a spawn happens", function () {
   for (var i = 0; i < 60 * 5; i++) h.tick();
   assert.ok(h.spawnCalls.length > 0, "expected at least one spawn to check");
   assert.strictEqual(h.toastCalls.length, h.spawnCalls.length, "expected exactly one toast per spawn");
-});
-
-test("Task 3.3: a warning sound is attempted at the spawn position", function () {
-  var h = freshHarness([mockBuilding("blast-drill", 12, 12, 1)], 0);
-  for (var i = 0; i < 60 * 5; i++) h.tick();
-  assert.ok(h.spawnCalls.length > 0, "expected at least one spawn to check");
-  assert.strictEqual(h.soundCalls.length, h.spawnCalls.length, "expected exactly one sound attempt per spawn");
-  assert.strictEqual(h.soundCalls[0].x, h.spawnCalls[0].x);
-  assert.strictEqual(h.soundCalls[0].y, h.spawnCalls[0].y);
-});
-
-test("Task 3.3: a sound failure doesn't prevent the toast or break the spawn flow", function () {
-  var h = freshHarness([mockBuilding("blast-drill", 13, 13, 1)], 0);
-  h.setSoundShouldThrow(true);
-  for (var i = 0; i < 60 * 5; i++) h.tick();
-  assert.ok(h.spawnCalls.length > 0, "expected the spawn itself to still succeed");
-  assert.ok(h.toastCalls.length > 0, "expected the toast to still fire even though the sound threw");
-  var foundSoundErrorLog = h.logMessages.some(function (msg) {
-    return msg.indexOf("warning sound failed") !== -1;
-  });
-  assert.ok(foundSoundErrorLog, "expected the sound failure to be logged rather than silently swallowed or crashing");
 });
 
 test("no spawn happens (logged, not crashed) when no open tile exists within search range", function () {
