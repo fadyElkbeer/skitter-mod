@@ -17,10 +17,12 @@
 // CONFIRMED against official Mindustry API docs / source (not guessed):
 //   - UnitType.spawn(Team team, float x, float y) is a real public
 //     method (mindustry.type.UnitType, official docs page).
-//   - Vars.state.rules.waveTeam is the correct dynamic "enemy team" to
-//     spawn as - confirmed via Rules.java source: "public Team waveTeam
-//     = Team.crux;". Using this instead of hardcoding Team.crux so this
-//     still works correctly under rulesets that change it.
+//   - SUPERSEDED: originally used Vars.state.rules.waveTeam (Team.crux,
+//     confirmed via Rules.java source) as the spawn team. Replaced per
+//     Task 3E.2's resolution - bugs are now a dedicated faction
+//     (Team.green), not lumped in with the vanilla wave-enemy team. See
+//     the BUG_TEAM constant below for the full reasoning and the live
+//     test that confirmed distinct teams are hostile by default.
 //   - Vars.content.unit(name) IS the right lookup method - confirmed via
 //     live console. The content NAME needed a fix though: mod content is
 //     namespaced as "<modname>-<contentname>", not the plain filename
@@ -58,6 +60,25 @@
 var noiseTracker = require("noise-tracker");
 var noiseHook = require("noise-hook");
 var spawnTrigger = require("spawn-trigger");
+
+// Task 3E.2 (resolved): bugs are their own faction, hostile to player
+// and AI alike, per mod-units.md. CONFIRMED via live testing that this
+// needs NO custom hostility code - Mindustry treats any two distinct
+// Team constants as enemies by default, with zero relationship setup.
+// Verified: Vars.state.teams.eachEnemyCore(Team.derelict, cb) found the
+// player's (sharded) core as an enemy of derelict, an otherwise-unused
+// team, with no code establishing that relationship.
+//
+// Using Team.green rather than Team.derelict specifically - derelict is
+// conventionally used for neutral/abandoned structures in Mindustry and
+// may carry special-case handling elsewhere in the engine that a real
+// combat faction shouldn't inherit. Team.green (or Team.blue) are plain
+// unused color slots with no such baggage.
+//
+// This replaces the previous approach of spawning on Vars.state.rules.
+// waveTeam (Team.crux) - bugs are now a genuinely separate faction, not
+// lumped in with the vanilla wave-enemy team.
+var BUG_TEAM = Team.green;
 
 // Reuses noise-hook.js's batch cadence rather than introducing a second
 // magic number - if Task 5.1 TPS testing says the interval needs to
@@ -189,7 +210,7 @@ function spawnSkitter(sourceTileX, sourceTileY) {
 
   var worldX = openTile.x * Vars.tilesize;
   var worldY = openTile.y * Vars.tilesize;
-  var team = Vars.state.rules.waveTeam;
+  var team = BUG_TEAM;
 
   type.spawn(team, worldX, worldY);
   Log.info("[skitter-mod] spawned Skitter at open tile (" + openTile.x + "," + openTile.y + ") near noise source (" + sourceTileX + "," + sourceTileY + ")");
