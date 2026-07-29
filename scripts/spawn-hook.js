@@ -1,8 +1,10 @@
 // spawn-hook.js
 //
-// Task 2.2 + spawning half of Task 3.2 + Task 3.3: wires spawn-trigger.js
-// into the live game loop, spawns a real Skitter unit, and warns the
-// player (toast notification) right after each spawn.
+// Task 2.2 + spawning half of Task 3.2 + Task 3.3 (reserved): wires
+// spawn-trigger.js into the live game loop and spawns a real Skitter
+// unit. Single-drill spawns are silent by design (per mod-units.md) -
+// warnPlayer() exists but isn't called yet, reserved for the future
+// wave-based spawn mechanism, which should warn the player.
 //
 // CONFIRMED: same Events.run(EventType.Trigger.update, ...) pattern as
 // noise-hook.js (Trigger-type events use .run, not .on) - see that
@@ -164,6 +166,14 @@ function findNearestOpenTile(centerX, centerY, maxRadius) {
 // Spawns a real Skitter unit near the noise source, at the nearest open
 // (non-solid) tile rather than directly on top of the source building.
 // See the header for what's confirmed vs. still a guess/gap here.
+//
+// Design decision (per mod-units.md clarification): single-drill spawns
+// are meant to be SILENT - no toast, no sound. The player warning is
+// reserved for the wave-based spawn mechanism (aggregates all faction
+// noise over time, spawns a scaled mix of units, not yet implemented -
+// see mod-units.md's "wave that should calculate all noise..." note).
+// warnPlayer() below is kept intact and ready for that mechanism to call
+// once it exists, rather than deleted and rewritten later.
 function spawnSkitter(sourceTileX, sourceTileY) {
   var type = getSkitterType();
   if (!type) {
@@ -184,11 +194,14 @@ function spawnSkitter(sourceTileX, sourceTileY) {
   type.spawn(team, worldX, worldY);
   Log.info("[skitter-mod] spawned Skitter at open tile (" + openTile.x + "," + openTile.y + ") near noise source (" + sourceTileX + "," + sourceTileY + ")");
 
-  warnPlayer(worldX, worldY);
+  // Deliberately NOT calling warnPlayer() here - single-drill spawns are
+  // silent by design. See the comment above.
 }
 
-// Task 3.3: player warning/tell, so a Skitter arriving isn't a total
-// surprise. Runs right after a successful spawn.
+// Task 3.3: player warning/tell. NOT currently called by anything -
+// reserved for the future wave-based spawn mechanism (see mod-units.md),
+// which per the design should warn the player, unlike single-drill
+// spawns which are silent.
 //
 // CONFIRMED (official wiki example, verbatim pattern):
 //   Vars.ui.hudfrag.showToast("message") - on-screen toast notification.
