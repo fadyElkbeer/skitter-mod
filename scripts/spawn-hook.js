@@ -1,8 +1,8 @@
 // spawn-hook.js
 //
-// Task 2.2 + first half of Task 3.2: wires spawn-trigger.js into the
-// live game loop, and now actually spawns a real Skitter unit (not just
-// a log message) once Task 3.1 defined the unit type.
+// Task 2.2 + spawning half of Task 3.2 + Task 3.3: wires spawn-trigger.js
+// into the live game loop, spawns a real Skitter unit, and warns the
+// player (toast + attempted sound) right after each spawn.
 //
 // CONFIRMED: same Events.run(EventType.Trigger.update, ...) pattern as
 // noise-hook.js (Trigger-type events use .run, not .on) - see that
@@ -183,6 +183,31 @@ function spawnSkitter(sourceTileX, sourceTileY) {
 
   type.spawn(team, worldX, worldY);
   Log.info("[skitter-mod] spawned Skitter at open tile (" + openTile.x + "," + openTile.y + ") near noise source (" + sourceTileX + "," + sourceTileY + ")");
+
+  warnPlayer(worldX, worldY);
+}
+
+// Task 3.3: player warning/tell, so a Skitter arriving isn't a total
+// surprise. Runs right after a successful spawn.
+//
+// CONFIRMED (official wiki example, verbatim pattern):
+//   Vars.ui.hudfrag.showToast("message") - on-screen toast notification.
+//
+// NOT CONFIRMED: Sounds.spawn as a real field. Found "spawn" in a large
+// dump of names from the wiki's SoundEffect reference page, but that
+// list mixes sound and visual-effect (Fx) names without making clear
+// which class each belongs to - this is a plausible guess, not a
+// verified fact the way showToast is. Wrapped in try/catch so a wrong
+// guess degrades to a log line instead of breaking the spawn/toast that
+// already succeeded above.
+function warnPlayer(worldX, worldY) {
+  Vars.ui.hudfrag.showToast("Skitter incoming!");
+
+  try {
+    Sounds.spawn.at(worldX, worldY);
+  } catch (e) {
+    Log.info("[skitter-mod] warning sound failed (Sounds.spawn may not be the right field) - " + e);
+  }
 }
 
 module.exports = {
