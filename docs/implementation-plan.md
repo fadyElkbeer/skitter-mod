@@ -1,6 +1,6 @@
 # Mindustry Mod Implementation Plan: Noise-Attracted Enemy Units
 
-*Revision 4 - adds Phase 3B: wave-based spawning and the extended unit roster (Gnawer, Howler, Broodmother, Buzzer, Shrieker, Screecher), per `mod-units.md`*
+*Revision 5 - Task 3E.2 (independent bug faction) was attempted, hit a real unresolved blocker, and was reverted. Everything else unchanged from rev 4.*
 
 ## 1. Executive Summary & Objectives
 
@@ -12,11 +12,11 @@
 - Give players meaningful counterplay (defense, noise reduction, or timing strategy)
 - Keep performance impact low enough to run on Android and desktop without server/TPS degradation
 - Ship with a safe, low-risk rollback path if performance problems appear post-release
-- **New (rev 4):** escalate threat over time via a wave-based spawn mechanism and a full unit roster (7 ground/flying units + an optional boss), not just a single repeating unit
+- Escalate threat over time via a wave-based spawn mechanism and a full unit roster (7 ground/flying units + an optional boss), not just a single repeating unit
 
 **Scope boundaries:**
-- **In scope:** noise accumulation logic, custom unit types + AI targeting, spawn rules/caps, configurable difficulty settings, JS/Java hybrid implementation, kill-switch toggle, **wave-based aggregate spawning, the extended unit roster, escalation tiers**
-- **Out of scope (for v1):** iOS support (blocked by platform restrictions - see Section 4), full sound-propagation physics, multiplayer-balanced tuning (treat as single-player-first, harden for MP later), rewriting core pathfinding, **Broodmother (explicitly deferred per `mod-units.md` - "Not now")**
+- **In scope:** noise accumulation logic, custom unit types + AI targeting, spawn rules/caps, configurable difficulty settings, JS/Java hybrid implementation, kill-switch toggle, wave-based aggregate spawning, the extended unit roster, escalation tiers
+- **Out of scope (for v1):** iOS support (blocked by platform restrictions - see Section 4), full sound-propagation physics, multiplayer-balanced tuning (treat as single-player-first, harden for MP later), rewriting core pathfinding, Broodmother (explicitly deferred per `mod-units.md` - "Not now")
 
 **Validation status:** Confirmed via web search that no existing Mindustry mod implements this specific mechanic - the idea is original as of this conversation (July 2026). NoiseTech (existing difficulty mod, unrelated despite the name) was checked for compatibility - see Task 1.3, resolved, no interaction found.
 
@@ -81,14 +81,15 @@ content/units/
 - `EventType.java` (core source) - for listening to block update / mining ticks
 - `Groups.build` and `World.solid()` - for iterating live buildings and checking tile occupancy (confirmed working patterns, see Section 6)
 - `UnitType.spawn()`, `Vars.content.unit()`, `Vars.state.rules.waveTeam` - for spawning real units (confirmed working, see Section 6)
-- **New for Phase 3B:** Mindustry's `Team` system (for the "bugs are their own faction" requirement), status-effect/shield APIs (for Screecher's protective aura), and whatever hook governs "increase noise radius on attack" (for Howler's shriek) - none of these are researched yet, flagged per-task below.
+- **Team system** (for the "bugs are their own faction" requirement) - partially researched, see Task 3E.2 and Section 6 for a real unresolved blocker found here
+- Status-effect/shield APIs (for Screecher's protective aura), and whatever hook governs "increase noise radius on attack" (for Howler's shriek) - none of these are researched yet, flagged per-task below.
 
 **Constraints established in conversation:**
 - Mindustry's logic loop is hard-capped at 60 TPS; dropping below 59 causes visible desync (conveyors slow, units lag, logic desyncs)
 - Enemy pathfinding (A*) is the most CPU-expensive operation in the engine - spawn frequency must be capped
 - iOS cannot run any mod using JavaScript or Java (Apple App Store restriction) - Android/desktop only, confirmed platform limitation
 - Rhino JS engine's ES6+ support is better than initially assumed - the official wiki's own scripting examples use arrow functions and `const`. Not fully re-tested against our own code (which still uses `var`/`function` throughout for safety), but worth remembering this isn't as restrictive an engine as first thought.
-- **New:** the wave mechanism (Phase 3B) will spawn *multiple* units at once, per wave, scaled with noise/duration - this multiplies the pathfinding-cost concern already flagged for single spawns. Formal Task 5.1 TPS testing becomes considerably more important once Phase 3B lands, not just "nice to do."
+- The wave mechanism (Phase 3B) will spawn *multiple* units at once, per wave, scaled with noise/duration - this multiplies the pathfinding-cost concern already flagged for single spawns. Formal Task 5.1 TPS testing becomes considerably more important once Phase 3B lands, not just "nice to do."
 
 ---
 
@@ -117,7 +118,7 @@ content/units/
 
 **Task 3.3 - Player warning/tell** - Implemented (`Vars.ui.hudfrag.showToast(...)`, confirmed working) but **not currently called by anything**. Per explicit design clarification: single-drill spawns are meant to be silent. The warning is reserved for the wave-spawn mechanism (Task 3B.6, below) - `warnPlayer()` already exists in `spawn-hook.js`, ready to be wired in once that mechanism exists.
 
-### Phase 3B: Extended Roster & Wave-Based Spawning - **NEW (rev 4), not started**
+### Phase 3B: Extended Roster & Wave-Based Spawning - **In progress (Task 3E.2 attempted, reverted)**
 
 *This phase is a substantial scope addition sourced from `mod-units.md`. Recommended sequencing: do this before Phase 4/5/6, since balance (4) and TPS testing (5) both need the fuller roster and the wave mechanism to be meaningful rather than premature.*
 
@@ -215,10 +216,14 @@ content/units/
 - This is a genuine architectural extension of Phase 2's spawn logic, not a drop-in addition - plan for it to touch `spawn-trigger.js` directly rather than living entirely in a new file
 - *Dependencies:* Task 3B (wave mechanism), all six new unit definitions existing (3C.1-3C.2, 3D.1-3D.3) so the ladder has real units to select from
 
-**Task 3E.2 - Independent bug faction**
+**Task 3E.2 - Independent bug faction - ATTEMPTED, REVERTED, REOPENED**
 - Per `mod-units.md`: "Our bugs are [a] faction on their own so they attack player and AI equally"
-- **Research needed:** whether Mindustry's `Team` system already gives this for free (most default AI just targets "not my team," so a genuinely separate bug team might be hostile to everyone automatically without extra code) or whether explicit multi-team-hostile logic needs to be written. Confirm via a primary source or live test before assuming either way - matches this mod's established pattern of not asserting engine behavior without checking.
-- *Dependencies:* none blocking - could be researched/started independently of the rest of Phase 3B
+- **PART 1 RESOLVED via live testing:** Mindustry needs NO custom hostility code for "distinct teams are enemies." Confirmed: `Vars.state.teams.eachEnemyCore(Team.derelict, cb)` found the player's (sharded) core as an enemy of `derelict`, an otherwise-unused team, with zero relationship-setup code. Any two distinct `Team` constants are hostile by default.
+- **PART 2: REAL BLOCKER FOUND, unresolved.** Attempted to apply this by switching Skitter's spawn team from `Vars.state.rules.waveTeam` (`Team.crux`) to a dedicated `Team.green`. Result: spawned Skitters were destroyed **immediately, at full health** (confirmed via a live `UnitDestroyEvent` listener: `health=35 maxHealth=35`, not combat damage). `Team.crux` never showed this behavior.
+  - **Ruled out:** unit cap. `Vars.state.teams.get(Team.green).unitCap` and the same for `Team.crux` both returned `0` - if a zero cap caused this, `crux` would show the same problem, and it never has. This was a genuine negative result, not an inconclusive one.
+  - **Still unknown:** the actual mechanism. Best unconfirmed guess: some form of "coreless team cleanup" that specifically exempts `crux` (since vanilla wave-spawned enemies never have a core either) but not arbitrary color teams like `green`. Not verified against a primary source or a passing test - treat as a hypothesis, not a fact.
+  - **Action taken:** reverted to `Vars.state.rules.waveTeam` (proven stable) rather than ship a broken faction change. See `scripts/spawn-hook.js`'s `BUG_TEAM` constant and its surrounding comment for the full record.
+- *Dependencies:* none blocking - remains independently researchable, but the next attempt should start by understanding *why* coreless teams behave this way (or finding a way to give the bug team a core, or a Rules-level exemption), not by trying another arbitrary team constant.
 
 **Task 3E.3 - Settings: noise-aggregation scope toggle**
 - "An option in mod settings [to] calculate noise for player only or [include] AI enemy also" - per `mod-units.md`
@@ -242,13 +247,14 @@ Informal versions have already happened throughout Phase 2/3 (TPS glances stayin
 ## 4. Important Notes & Edge Cases
 
 - **iOS incompatibility is a hard platform limitation**, not a bug to fix.
-- **Performance is the top implementation risk**, and **rev 4 raises the stakes**: wave spawning means multiple units (potentially multiple tiers) spawning together, multiplying pathfinding cost per trigger rather than one unit at a time. Formal Task 5.1 testing is more urgent post-Phase-3B than it was before.
+- **Performance is the top implementation risk**, and wave spawning raises the stakes further: multiple units (potentially multiple tiers) spawning together multiplies pathfinding cost per trigger rather than one unit at a time. Formal Task 5.1 testing is more urgent post-Phase-3B than it was before.
 - **Rhino JS engine** - better ES6+ support than assumed; see Section 2.
 - **Avoid per-frame noise checks** - confirmed working as designed (60-tick batching). The same discipline must apply to the new wave/faction/escalation hooks.
 - **Multiplayer is a secondary concern** - unchanged, still single-player-first. Worth noting Task 3E.2 (faction targeting) has real implications for how this mod would behave in MP, if that's ever revisited.
 - **Original idea confirmed** - unchanged.
 - **Game version drift** - target version pinned (159.2 / `minGameVersion: 159`).
-- **New (rev 4): scope growth risk.** Phase 3B roughly doubles the mod's surface area (6 new units, 2 new noise-system hooks, a new spawn mechanism, an escalation ladder, a faction system). Worth periodically re-checking whether all of this is still v1 scope or whether some pieces (Broodmother is already deferred; Screecher's aura or Howler's shriek could be candidates too) should be pushed to a later update.
+- **Scope growth risk.** Phase 3B roughly doubles the mod's surface area (6 new units, 2 new noise-system hooks, a new spawn mechanism, an escalation ladder, a faction system). Worth periodically re-checking whether all of this is still v1 scope or whether some pieces (Broodmother is already deferred; Screecher's aura or Howler's shriek could be candidates too) should be pushed to a later update.
+- **New (rev 5): not every engine question resolves cleanly via live testing.** Task 3E.2 is the first case in this build where live testing produced a clear, reproducible negative result (unit cap ruled out) without fully explaining the underlying mechanism. Worth remembering this is possible - the response was to revert to a known-good state and document the open question honestly, rather than ship a guessed "fix" for a poorly-understood problem.
 
 ---
 
@@ -263,23 +269,22 @@ Informal versions have already happened throughout Phase 2/3 (TPS glances stayin
 - Is multiplayer support a goal for v1, or single-player only initially?
 - Who is the playtesting audience for Task 5.2?
 - When resuming Task 3.2 (custom AI), is the full custom-controller approach still the goal, or is a simpler interim behavior acceptable?
-
-**New in rev 4:**
-- Should Howler's shriek (noise-radius boost) and Shrieker's passive aura (noise amplification) share a single underlying noise-system extension, or be built as two separate hooks? (Section 3B-iii flags these as likely-related.)
+- Should Howler's shriek (noise-radius boost) and Shrieker's passive aura (noise amplification) share a single underlying noise-system extension, or be built as two separate hooks?
 - Does Screecher's Protective Aura need genuinely new Mindustry API research (status effects/shields), or does an existing vanilla mechanic already cover this well enough to reuse?
-- Does the "bugs are their own faction" requirement (Task 3E.2) need custom code at all, or does Mindustry's Team system already provide "hostile to everyone but my own team" behavior by default?
 - Given the scope growth, is Broodmother's "Not now" deferral final for v1, or should it be revisited once the rest of Phase 3B is built?
 
+**Updated in rev 5:**
+- ~~Does the "bugs are their own faction" requirement need custom code at all?~~ → **Partially answered.** No custom hostility code needed (distinct teams are enemies by default) - but a real, unexplained blocker (coreless teams destroying their own spawned units) means the *practical* goal of "bugs on their own dedicated team" is still unresolved, not just a theoretical question anymore.
+- **New:** what actually causes a unit spawned on a coreless, non-`crux` team to be destroyed immediately? Candidate next steps: (a) research Mindustry's source for wave-team-specific exemptions in unit cleanup logic, (b) try giving the bug team an actual (possibly hidden/indestructible) core somewhere on the map, (c) check if a `Rules` field can mark an arbitrary team as "wave-like" for this purpose.
+
 **Immediate next steps:**
-1. Phase 3B is large - recommend picking a concrete starting point rather than attempting it all at once. Reasonable first slices: **Task 3E.2** (faction research, independent of everything else) or **Task 3D.1/Buzzer** (simplest new unit, no new system hooks required, most similar to the already-proven Task 3.1 pattern)
-2. Task 3B.1 (faction noise aggregation) is the true dependency root for most of the wave-mechanism tasks - worth tackling early if wave spawning is the priority over new unit variety
+1. Task 3E.2 is now a genuine open research problem, not a quick win - don't re-attempt with another arbitrary team constant without a stronger hypothesis first
+2. Reasonable next picks that don't depend on Task 3E.2 being resolved: **Task 3D.1/Buzzer** (closest to the proven Task 3.1 pattern, no new system hooks) or **Task 3B.1** (faction noise aggregation - can be built using `Team.crux`/`waveTeam` for now, and swapped later if/when Task 3E.2 resolves)
 3. Task 5.1's formal TPS protocol should be scheduled once Phase 3B-i (wave mechanism) lands, given the raised performance stakes noted in Section 4
 
 ---
 
 ## 6. Confirmed API Findings (build log from live testing)
-
-*(Unchanged from rev 3 - all findings below remain accurate and directly relevant to Phase 3B's new work, especially the `type` keyword findings for Gnawer/Howler (`mech`) and Buzzer/Shrieker/Screecher (`flying`).)*
 
 - **`require()` paths must omit the `.js` extension.** `require("noise-hook")`, not `require("noise-hook.js")`. Confirmed via an in-game "Module not found" error.
 - **`Events.run(Trigger.x, callback)`, not `Events.on(...)`, for Trigger-type (bare signal) events.** `Events.on` is for typed events like `UnitDestroyEvent`. Confirmed via an in-game `EvaluatorException`.
@@ -297,4 +302,7 @@ Informal versions have already happened throughout Phase 2/3 (TPS glances stayin
 - **`UnitType.spawn(Team, x, y)` takes world (pixel) coordinates, not tile coordinates.** Needs `* Vars.tilesize` conversion.
 - **`Vars.world.solid(x, y)`** correctly identifies occupied/blocked tiles, confirmed against `World.java` source.
 - **`Vars.ui.hudfrag.showToast("message")`** is a confirmed, working on-screen toast notification - pulled verbatim from the official wiki's own scripting example.
-- **`Sounds.spawn` does NOT exist.** Confirmed via a live `InternalError`: "Java class mindustry.gen.Sounds has no public instance field or method named 'spawn'." A guessed field name from a wiki page that mixed sound and visual-effect (Fx) names without distinguishing them - removed rather than guessed again. **Any future sound work (e.g. for wave warnings, Task 3B.6) needs the correct field name confirmed before use, not another guess from that same list.**
+- **`Sounds.spawn` does NOT exist.** Confirmed via a live `InternalError`: "Java class mindustry.gen.Sounds has no public instance field or method named 'spawn'." A guessed field name from a wiki page that mixed sound and visual-effect (Fx) names without distinguishing them - removed rather than guessed again. Any future sound work needs the correct field name confirmed before use, not another guess from that same list.
+- **Distinct `Team` constants are hostile to each other by default, with zero relationship-setup code.** Confirmed via `Vars.state.teams.eachEnemyCore(Team.derelict, cb)`, which found the player's core as an enemy of an otherwise-unused team.
+- **`Teams` (the manager class, `Vars.state.teams`) has no `areEnemies()` method** - confirmed via a live `EvaluatorException` when guessed. The real hostility-adjacent methods, found via reflection, are `closestEnemyCore(float, float, Team)`, `anyEnemyCoresWithin(Team, float, float, float)`, and `eachEnemyCore(Team, Cons)` - none take just two bare `Team` arguments the way a hypothetical `areEnemies(a, b)` would.
+- **A unit spawned on a team with zero cores can be destroyed immediately, at full health, for a reason that is NOT unit cap.** Confirmed: Skitters spawned on `Team.green` died the same tick they spawned (`health=35 maxHealth=35` at destruction, via a live `UnitDestroyEvent` listener). `Team.crux` (which also has no core on a normal wave-defense map) never shows this behavior, and `unitCap` was confirmed identical (`0`) for both teams, ruling that out as the cause. **The actual mechanism is unconfirmed** - reverted to `Team.crux`/`waveTeam` rather than guess further. See Task 3E.2 for the full context.
