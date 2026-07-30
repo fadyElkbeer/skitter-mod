@@ -17,12 +17,12 @@
 // CONFIRMED against official Mindustry API docs / source (not guessed):
 //   - UnitType.spawn(Team team, float x, float y) is a real public
 //     method (mindustry.type.UnitType, official docs page).
-//   - SUPERSEDED: originally used Vars.state.rules.waveTeam (Team.crux,
-//     confirmed via Rules.java source) as the spawn team. Replaced per
-//     Task 3E.2's resolution - bugs are now a dedicated faction
-//     (Team.green), not lumped in with the vanilla wave-enemy team. See
-//     the BUG_TEAM constant below for the full reasoning and the live
-//     test that confirmed distinct teams are hostile by default.
+//   - Vars.state.rules.waveTeam (Team.crux) is the correct, stable team
+//     to spawn on - confirmed via Rules.java source AND by live testing
+//     (see BUG_TEAM below for the full story: an attempt to switch to a
+//     dedicated Team.green faction caused spawned units to be destroyed
+//     immediately at full health, for reasons not yet understood -
+//     reverted back to waveTeam, which has never shown this problem).
 //   - Vars.content.unit(name) IS the right lookup method - confirmed via
 //     live console. The content NAME needed a fix though: mod content is
 //     namespaced as "<modname>-<contentname>", not the plain filename
@@ -61,24 +61,43 @@ var noiseTracker = require("noise-tracker");
 var noiseHook = require("noise-hook");
 var spawnTrigger = require("spawn-trigger");
 
-// Task 3E.2 (resolved): bugs are their own faction, hostile to player
-// and AI alike, per mod-units.md. CONFIRMED via live testing that this
-// needs NO custom hostility code - Mindustry treats any two distinct
-// Team constants as enemies by default, with zero relationship setup.
-// Verified: Vars.state.teams.eachEnemyCore(Team.derelict, cb) found the
-// player's (sharded) core as an enemy of derelict, an otherwise-unused
-// team, with no code establishing that relationship.
+// Task 3E.2 - REOPENED, reverted.
 //
-// Using Team.green rather than Team.derelict specifically - derelict is
-// conventionally used for neutral/abandoned structures in Mindustry and
-// may carry special-case handling elsewhere in the engine that a real
-// combat faction shouldn't inherit. Team.green (or Team.blue) are plain
-// unused color slots with no such baggage.
+// Attempted: a dedicated bug faction (Team.green) instead of Team.crux
+// (waveTeam), so bugs would be a genuinely separate faction per
+// mod-units.md. Confirmed via live testing that distinct teams ARE
+// hostile to each other by default (no relationship code needed) - see
+// the eachEnemyCore() finding below - but this ran into a real,
+// unresolved problem:
 //
-// This replaces the previous approach of spawning on Vars.state.rules.
-// waveTeam (Team.crux) - bugs are now a genuinely separate faction, not
-// lumped in with the vanilla wave-enemy team.
-var BUG_TEAM = Team.green;
+// PROBLEM: Skitters spawned on Team.green were destroyed IMMEDIATELY
+// (same tick) at full health (health=35, maxHealth=35 - confirmed via
+// a live UnitDestroyEvent listener, so this is not combat damage).
+// Team.crux never showed this behavior.
+//
+// RULED OUT: unit cap. Vars.state.teams.get(Team.green).unitCap and
+// the same for Team.crux both returned 0 - if a zero cap caused
+// instant destruction, crux's Skitters would have died too, and they
+// never did. This was a real, useful negative result, not just an
+// inconclusive one.
+//
+// STILL UNKNOWN: the actual mechanism. Best remaining guess is some
+// form of "coreless team cleanup" that exempts crux (since vanilla wave
+// enemies never have a core either) but not arbitrary color teams like
+// green - but this is genuinely unconfirmed, not verified against a
+// primary source or a passing live test the way everything else in
+// this file is. Rather than keep guessing at obscure engine internals
+// live, reverted to the known-working configuration and left this as
+// an open question (see Section 5 of the implementation plan) instead
+// of a resolved fact.
+//
+// CONFIRMED (kept, still true): Vars.state.teams.eachEnemyCore(
+// Team.derelict, cb) found the player's (sharded) core as an enemy of
+// derelict, an otherwise-unused team, with zero relationship-setup
+// code. Distinct teams being hostile by default is real - the open
+// problem is specifically about a spawned unit surviving on such a
+// team, not about hostility.
+var BUG_TEAM = Vars.state.rules.waveTeam;
 
 // Reuses noise-hook.js's batch cadence rather than introducing a second
 // magic number - if Task 5.1 TPS testing says the interval needs to
