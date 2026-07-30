@@ -40,7 +40,6 @@ function freshHarness(mockBuildings, fixedRandomValue, solidTileKeys) {
   var toastCalls = [];
   var paused = false;
 
-  var mockWaveTeam = "mockCruxTeam";
   var mockSkitterType = {
     spawn: function (team, x, y) {
       spawnCalls.push({ team: team, x: x, y: y });
@@ -81,13 +80,13 @@ function freshHarness(mockBuildings, fixedRandomValue, solidTileKeys) {
       logMessages.push(msg);
     }
   };
+  global.Team = {
+    green: "mockGreenTeam"
+  };
   global.Vars = {
     state: {
       isPaused: function () {
         return paused;
-      },
-      rules: {
-        waveTeam: mockWaveTeam
       }
     },
     tilesize: 8,
@@ -142,8 +141,7 @@ function freshHarness(mockBuildings, fixedRandomValue, solidTileKeys) {
     spawnTrigger: spawnTrigger,
     logMessages: logMessages,
     spawnCalls: spawnCalls,
-    toastCalls: toastCalls,
-    mockWaveTeam: mockWaveTeam
+    toastCalls: toastCalls
   };
 }
 
@@ -223,11 +221,11 @@ test("no spawn happens (logged, not crashed) when no open tile exists within sea
   assert.ok(foundSkipLog, "expected a log explaining the spawn was skipped");
 });
 
-test("spawn uses Vars.state.rules.waveTeam rather than a hardcoded team", function () {
+test("spawn uses the dedicated bug faction team (Team.green), not a vanilla wave team", function () {
   var h = freshHarness([mockBuilding("blast-drill", 2, 2, 1)], 0);
   for (var i = 0; i < 60 * 5; i++) h.tick();
   assert.ok(h.spawnCalls.length > 0, "expected at least one spawn call to check");
-  assert.strictEqual(h.spawnCalls[0].team, h.mockWaveTeam);
+  assert.strictEqual(h.spawnCalls[0].team, Team.green);
 });
 
 test("an unfavorable roll suppresses the spawn even above threshold", function () {
