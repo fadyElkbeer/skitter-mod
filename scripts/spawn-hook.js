@@ -60,6 +60,7 @@
 var noiseTracker = require("noise-tracker");
 var noiseHook = require("noise-hook");
 var spawnTrigger = require("spawn-trigger");
+var spawnUtils = require("spawn-utils");
 
 // Task 3E.2 - REOPENED, reverted.
 //
@@ -138,8 +139,12 @@ function runSpawnCheck() {
     var pos = tracked[i];
     var noiseLevel = noiseHook.getNoiseLevel(pos);
 
-    if (spawnTrigger.shouldSpawn(pos.x, pos.y, noiseLevel, totalTicks)) {
-      spawnTrigger.recordSpawnStarted(pos.x, pos.y, totalTicks);
+    // "skitter" passed explicitly now that spawn-trigger.js keys state
+    // by (x, y, unitType) - see spawn-trigger.js's header for why this
+    // changed (Buzzer, Task 3D.1, needed independent cooldown/cap at
+    // the same source).
+    if (spawnTrigger.shouldSpawn(pos.x, pos.y, noiseLevel, totalTicks, undefined, "skitter")) {
+      spawnTrigger.recordSpawnStarted(pos.x, pos.y, totalTicks, "skitter");
       spawnSkitter(pos.x, pos.y);
     }
   }
@@ -167,14 +172,9 @@ function getSkitterType() {
 // Real bug found via live testing: spawning directly at the noise
 // source's own tile puts the unit ON TOP OF the drill/extractor itself,
 // since that tile IS the building. Fixed by searching outward in
-// expanding square rings for the nearest tile that isn't solid.
-//
-// CONFIRMED against Mindustry source (World.java): World.solid(x, y) is
-// a real public method - "return tile == null || tile.solid();" - so
-// checking !Vars.world.solid(x, y) correctly identifies open, walkable
-// ground. Vars.world itself is confirmed accessible the same way
-// Vars.state/Vars.content are (seen used directly in Mindustry's own
-// BuildingComp.java as Vars.world.tile(...)).
+// expanding square rings for the nearest tile that isn't solid - see
+// spawn-utils.js's findNearestOpenTile (extracted there during Task
+// 3D.1 so buzzer-hook.js can reuse it without duplication).
 //
 // This does NOT yet implement the plan's original "just outside the
 // player's explored/visible radius" spec - that's a separate, bigger
@@ -183,25 +183,6 @@ function getSkitterType() {
 // building) with the simplest correct fix: nearest open ground, full
 // stop. Revisit vision-based placement as its own follow-up.
 var MAX_SPAWN_SEARCH_RADIUS = 6;
-
-function findNearestOpenTile(centerX, centerY, maxRadius) {
-  for (var r = 0; r <= maxRadius; r++) {
-    for (var dx = -r; dx <= r; dx++) {
-      for (var dy = -r; dy <= r; dy++) {
-        // Only check the ring boundary at exactly radius r - inner
-        // tiles were already checked at smaller r values.
-        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
-
-        var tx = centerX + dx;
-        var ty = centerY + dy;
-        if (!Vars.world.solid(tx, ty)) {
-          return { x: tx, y: ty };
-        }
-      }
-    }
-  }
-  return null; // nothing open within maxRadius - caller must handle
-}
 
 // Spawns a real Skitter unit near the noise source, at the nearest open
 // (non-solid) tile rather than directly on top of the source building.
@@ -221,7 +202,7 @@ function spawnSkitter(sourceTileX, sourceTileY) {
     return;
   }
 
-  var openTile = findNearestOpenTile(sourceTileX, sourceTileY, MAX_SPAWN_SEARCH_RADIUS);
+  var openTile = spawnUtils.findNearestOpenTile(sourceTileX, sourceTileY, MAX_SPAWN_SEARCH_RADIUS);
   if (!openTile) {
     Log.info("[skitter-mod] no open tile found within " + MAX_SPAWN_SEARCH_RADIUS + " tiles of noise source (" + sourceTileX + "," + sourceTileY + ") - skipping this spawn");
     return;
