@@ -1,7 +1,8 @@
 // spawn-trigger.test.js
 //
-// Standalone test harness for scripts/spawn-trigger.js (Task 2.2).
-// Runs under plain Node since the module has no engine dependencies.
+// Standalone test harness for scripts/spawn-trigger.js (Task 2.2,
+// extended for Task 3D.1's per-unit-type keying). Runs under plain
+// Node since the module has no engine dependencies.
 // Run with: node tests/spawn-trigger.test.js
 
 var assert = require("assert");
@@ -96,6 +97,23 @@ test("distinct sources are tracked independently", function () {
   trigger.recordSpawnStarted(7, 7, 0);
   assert.strictEqual(trigger.getActiveCount(7, 7), 1);
   assert.strictEqual(trigger.getActiveCount(8, 8), 0);
+});
+
+test("different unit types at the SAME source track cooldown independently", function () {
+  var noise = trigger.SPAWN_THRESHOLD + trigger.CHANCE_SCALE_RANGE;
+  trigger.recordSpawnStarted(9, 9, 100, "skitter");
+  // skitter is now on cooldown at (9,9) - buzzer should be unaffected
+  var buzzerCanSpawn = trigger.shouldSpawn(9, 9, noise, 101, always(0), "buzzer");
+  var skitterCanSpawn = trigger.shouldSpawn(9, 9, noise, 101, always(0), "skitter");
+  assert.strictEqual(buzzerCanSpawn, true, "expected buzzer's cooldown to be independent of skitter's");
+  assert.strictEqual(skitterCanSpawn, false, "expected skitter to still be on its own cooldown");
+});
+
+test("different unit types at the SAME source track concurrency cap independently", function () {
+  trigger.recordSpawnStarted(10, 10, 0, "skitter");
+  trigger.recordSpawnStarted(10, 10, trigger.COOLDOWN_TICKS + 1, "skitter");
+  assert.strictEqual(trigger.getActiveCount(10, 10, "skitter"), trigger.MAX_CONCURRENT_PER_SOURCE);
+  assert.strictEqual(trigger.getActiveCount(10, 10, "buzzer"), 0, "expected buzzer's count to be unaffected by skitter's spawns at the same source");
 });
 
 console.log("");
