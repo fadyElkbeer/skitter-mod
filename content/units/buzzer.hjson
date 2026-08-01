@@ -36,10 +36,8 @@
 //     support this. Left as a plain single-target bullet for now rather
 //     than guess at a splash/DoT bullet subtype with no confirmation.
 //     Revisit once a splash-capable BulletType is researched/confirmed.
-//   - Swarm spawning (2-3 at once) is NOT implemented by this file - it
-//     only defines the unit itself. The spawn-side logic (multiple
-//     units per trigger) still needs to be built into spawn-hook.js or
-//     a parallel hook, per the plan's Task 3D.1 dependency note.
+//   - Swarm spawning (2-3 at once) - implemented separately, in
+//     scripts/buzzer-hook.js. This file only defines the unit itself.
 //
 // Design intent per mod-units.md: "small flying unit, low health" -
 // weaker than Skitter overall, offset by numbers (swarm) and flight
