@@ -13,8 +13,9 @@
 // Task 1.2 checklist rather than trusting this either way.)
 
 require("noise-hook"); // Task 2.1b — noise accumulator wired to the live game loop
-require("spawn-hook"); // Task 2.2 — spawn trigger logic (spawn action stubbed pending Task 3.1's unit)
+require("spawn-hook"); // Task 2.2 — spawn trigger logic, spawns real Skitters
+require("buzzer-hook"); // Task 3D.1 — spawns Buzzer swarms (2-3 units) on the same noise trigger
 
 Events.on(EventType.ClientLoadEvent, function(e) {
-  Log.info("[skitter-mod] loaded — noise tracking + spawn trigger active (Tasks 2.1a-2.2). No unit type yet (Task 3.1 pending), so spawn triggers currently just log.");
+  Log.info("[skitter-mod] loaded — Skitter + Buzzer spawning active. Custom AI (Task 3.2), wave-spawn mechanism (Phase 3B), and the rest of the roster are still pending.");
 });
