@@ -19,16 +19,15 @@
 //   - Core UnitType fields (speed, hitSize, health, armor, accel, drag,
 //     rotateSpeed, targetGround, targetAir, faceTarget, itemCapacity)
 //     are confirmed via the official wiki's UnitType field reference.
+//   - CONFIRMED via live in-game load: flying units need NO additional
+//     sprite beyond the base body + cell overlay - buzzer.png and
+//     buzzer-cell.png (the same two-file set used for Skitter) were
+//     sufficient. No shadow sprite or other flying-specific asset was
+//     required. Loaded with zero warnings or errors. This should apply
+//     to Shrieker and Screecher too (also flying, Tasks 3D.2/3D.3).
 //
 // NOT YET CONFIRMED - this is the mod's first flying unit, so some
 // things skitter.hjson never had to test are still open:
-//   - Whether flying units need any additional sprite (e.g. a shadow
-//     sprite cast on the ground) beyond the base body + cell overlay
-//     that were sufficient for a ground unit. Two placeholder sprites
-//     are provided (buzzer.png, buzzer-cell.png) matching Skitter's
-//     set; if a shadow or other flying-specific sprite is required,
-//     that will need to be discovered via the same live-load-and-check
-//     process used throughout this mod, not guessed here.
 //   - mod-units.md describes a splash/puddle damage-over-time effect on
 //     impact ("small splash/puddle on impact... optional lingering
 //     damage-over-time zone"). NOT implemented here - BasicBulletType
